@@ -27,11 +27,22 @@ export default function Scan({ household, onChange }) {
   return (
     <div>
       <section className="card">
-        <label>Who paid?
-          <select value={payer} onChange={(e) => setPayer(Number(e.target.value))}>
-            {household.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </label>
+        <p className="payer-label" id="payer-label">Who paid for this shop?</p>
+        <div className="payer-options" role="group" aria-labelledby="payer-label">
+          {household.members.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className={`payer-option${payer === m.id ? ' selected' : ''}`}
+              aria-pressed={payer === m.id}
+              onClick={() => setPayer(m.id)}
+            >
+              <span className="payer-avatar" aria-hidden="true">{m.name.trim().charAt(0).toUpperCase()}</span>
+              <span>{m.name}</span>
+              {payer === m.id && <span className="payer-check" aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
         {/* capture="environment" opens the rear camera directly on phones */}
         <label className="upload">
           {busy ? 'Reading receipt…' : '📷 Snap or upload a receipt'}
