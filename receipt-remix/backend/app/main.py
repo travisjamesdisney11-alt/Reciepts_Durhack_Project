@@ -225,7 +225,7 @@ def insights(hid: int):
             f"SELECT strftime('%Y-W%W', r.purchased_at) AS week, ROUND(SUM(li.price), 2) AS spend {base} AND r.purchased_at IS NOT NULL GROUP BY week ORDER BY week",
             (hid,)))
         history = db.rows(conn.execute(
-            f"SELECT li.canonical_name, li.name, li.price, li.size_value, li.size_unit, li.unit_price, li.unit_basis, r.purchased_at {base} AND li.canonical_name != '' ORDER BY r.purchased_at",
+            f"SELECT li.canonical_name, li.name, li.category, li.price, li.size_value, li.size_unit, li.unit_price, li.unit_basis, r.purchased_at {base} AND li.canonical_name != '' ORDER BY r.purchased_at",
             (hid,)))
     return {"spend_by_category": by_category, "spend_by_week": by_week, "price_changes": price_changes(history)}
 
@@ -246,7 +246,7 @@ def price_changes(history: list[dict]) -> list[dict]:
         if len(hs) < 2:
             continue
         first, last = hs[0], hs[-1]
-        change = {"product": last["name"], "first_date": first["purchased_at"], "last_date": last["purchased_at"],
+        change = {"product": last["name"], "category": last.get("category"), "first_date": first["purchased_at"], "last_date": last["purchased_at"],
                   "first_price": first["price"], "last_price": last["price"],
                   "price_change_pct": round((last["price"] - first["price"]) / first["price"] * 100, 1) if first["price"] else None,
                   "unit_basis": last["unit_basis"], "first_unit_price": first["unit_price"], "last_unit_price": last["unit_price"],
