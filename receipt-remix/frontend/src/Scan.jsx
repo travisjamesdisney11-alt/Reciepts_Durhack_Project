@@ -42,7 +42,7 @@ export default function Scan({ household, onChange }) {
       </section>
 
       {receipt && (
-        <div className="receipt-layout">
+        <div className={preview ? 'receipt-layout' : 'receipt-layout no-preview'}>
           {preview && <img className="preview" src={preview} alt="receipt" />}
           <ReceiptView receipt={receipt} household={household} onUpdate={(r) => { setReceipt(r); onChange() }} />
         </div>
