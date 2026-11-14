@@ -3,8 +3,8 @@ import { api } from './api.js'
 
 const ESSENTIALS = new Set(['produce', 'dairy_eggs', 'meat_fish', 'bakery', 'frozen', 'cupboard', 'household_cleaning', 'laundry', 'toiletries_personal_care', 'baby_care', 'feminine_care', 'health_medicine', 'pet'])
 const ACCENTS = new Set(['drinks', 'alcohol', 'snacks_treats', 'ready_meals'])
-const EARTH_PALETTE = ['#839477', '#a8a876', '#667f69', '#bd9668']
-const ACCENT_PALETTE = ['#e58057', '#e7b45f', '#6e9fa0', '#ca7565']
+const EARTH_PALETTE = ['#bd7861', '#d2a15f', '#9c7488', '#967e72']
+const ACCENT_PALETTE = ['#e47761', '#eab753', '#718fa0', '#ce7180']
 
 function categoryLabel(category) {
   return String(category).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -17,6 +17,26 @@ function categoryColor(category, index) {
     return EARTH_PALETTE[paletteIndex < 0 ? index % EARTH_PALETTE.length : paletteIndex]
   }
   return EARTH_PALETTE[index % EARTH_PALETTE.length]
+}
+
+function smoothPath(points) {
+  if (points.length < 2) return ''
+
+  return points.slice(0, -1).reduce((path, point, index) => {
+    const next = points[index + 1]
+    const previous = points[Math.max(0, index - 1)]
+    const afterNext = points[Math.min(points.length - 1, index + 2)]
+    const control1 = {
+      x: point.x + (next.x - previous.x) / 6,
+      y: point.y + (next.y - previous.y) / 6,
+    }
+    const control2 = {
+      x: next.x - (afterNext.x - point.x) / 6,
+      y: next.y - (afterNext.y - point.y) / 6,
+    }
+    const start = index === 0 ? `M ${point.x} ${point.y}` : path
+    return `${start} C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${next.x} ${next.y}`
+  }, '')
 }
 
 // Keep the supporting charts lightweight; the tapestry is drawn from the same API data.
@@ -43,9 +63,19 @@ function Tapestry({ rows, priceChanges }) {
   const movement = Math.min(1, Math.max(0, ...priceChanges.map((item) =>
     item.unit_price_change_pct ?? item.price_change_pct ?? 0
   )) / 30)
-  const skyColor = movement > 0.5 ? '#e8c89c' : '#bdd3d4'
+  const skyColor = movement > 0.5 ? '#d98e8d' : '#bba8d1'
   const inflationWave = 12 + movement * 38
   const spendMax = Math.max(...categories.map((category) => category.spend), 1)
+  const terrainPoints = essentials.map((category, index) => ({
+    category,
+    x: essentials.length === 1 ? 450 : 108 + index * (684 / (essentials.length - 1)),
+    y: 310 - (category.spend / spendMax) * 100,
+  }))
+  const terrainCurvePoints = [{ x: 0, y: 310 }, ...terrainPoints, { x: 900, y: 310 }]
+  const terrainLine = smoothPath(terrainCurvePoints)
+  const terrainArea = terrainLine
+    ? `${terrainLine} L 900 440 L 0 440 Z`
+    : 'M 0 310 L 900 310 L 900 440 L 0 440 Z'
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.category ?? null)
   const [hoveredCategory, setHoveredCategory] = useState(null)
   const activeCategory = hoveredCategory ?? selectedCategory
@@ -64,6 +94,7 @@ function Tapestry({ rows, priceChanges }) {
             <span><i className="key-ground" /> Essentials</span>
             <span><i className="key-accent" /> Treats &amp; drinks</span>
             <span><i className="key-wave" /> Price trend</span>
+            <span className="height-key">Higher ground = more essentials spend</span>
           </div>
           <div className="tapestry-legend" role="group" aria-label="Spending categories">
             {categories.map((category, index) => {
@@ -93,25 +124,40 @@ function Tapestry({ rows, priceChanges }) {
           <defs>
             <linearGradient id="landscape-sky" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor={skyColor} />
-              <stop offset="1" stopColor="#f3dfc5" />
+              <stop offset=".38" stopColor="#dfa0b0" />
+              <stop offset=".7" stopColor="#f39b75" />
+              <stop offset=".9" stopColor="#ffd083" />
+              <stop offset="1" stopColor="#ffe4a5" />
             </linearGradient>
             <linearGradient id="inflation-wave" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#6d9ea1" />
-              <stop offset=".58" stopColor="#d7a35f" />
-              <stop offset="1" stopColor="#df805b" />
+              <stop offset="0" stopColor="#8887b1" />
+              <stop offset=".58" stopColor="#efb45e" />
+              <stop offset="1" stopColor="#e47768" />
             </linearGradient>
+            <radialGradient id="sunset-sun" cx=".35" cy=".28" r=".8">
+              <stop offset="0" stopColor="#fff5bf" />
+              <stop offset=".7" stopColor="#ffc66f" />
+              <stop offset="1" stopColor="#f28a69" />
+            </radialGradient>
+            <clipPath id="sunset-disc">
+              <circle cx="620" cy="210" r="52" />
+            </clipPath>
             <clipPath id="landscape-ground">
-              <path d="M 0 281 C 140 258 214 307 352 285 S 579 248 710 284 S 827 310 900 270 L 900 440 L 0 440 Z" />
+              <path d={terrainArea} />
             </clipPath>
             <filter id="landscape-soft"><feGaussianBlur stdDeviation="18" /></filter>
           </defs>
           <rect width="900" height="440" fill="url(#landscape-sky)" />
-          <circle cx="707" cy="128" r={86 + movement * 24} fill="#e89562" opacity={0.12 + movement * 0.28} filter="url(#landscape-soft)" />
-          <circle cx="172" cy="155" r="96" fill="#fff5df" opacity=".48" />
-          <path d="M 0 273 L 120 165 L 214 252 L 343 132 L 496 270 L 624 176 L 765 261 L 836 199 L 900 255 L 900 330 L 0 330 Z" fill="#a3b2a1" opacity=".48" />
-          <path d="M 0 298 C 136 244 223 299 354 268 S 588 254 704 279 S 826 294 900 256 L 900 360 L 0 360 Z" fill="#829985" opacity=".72" />
-          <path d="M 0 281 C 140 258 214 307 352 285 S 579 248 710 284 S 827 310 900 270 L 900 440 L 0 440 Z" fill="#5f795f" />
-          <path d="M 0 344 C 141 325 258 365 389 340 S 647 331 777 354 S 857 355 900 340 L 900 440 L 0 440 Z" fill="#526b55" opacity=".82" />
+          <circle cx="620" cy="210" r={84 + movement * 18} fill="#ff9b72" opacity={0.2 + movement * 0.2} filter="url(#landscape-soft)" />
+          <circle cx="620" cy="210" r="52" fill="url(#sunset-sun)" />
+          <g clipPath="url(#sunset-disc)" opacity=".34">
+            <path d="M 565 211 H 675 M 565 222 H 675 M 565 233 H 675" stroke="#d86e6d" strokeWidth="3" />
+          </g>
+          <path d="M 0 273 L 120 165 L 214 252 L 343 132 L 496 270 L 624 176 L 765 261 L 836 199 L 900 255 L 900 330 L 0 330 Z" fill="#b09abf" opacity=".68" />
+          <path d="M 0 298 C 136 244 223 299 354 268 S 588 254 704 279 S 826 294 900 256 L 900 360 L 0 360 Z" fill="#c47d83" opacity=".88" />
+          <path d={terrainArea} fill="#80677d" />
+          <path d={terrainLine || 'M 0 310 L 900 310'} fill="none" stroke="#f0c77e" strokeWidth="2" opacity=".86" />
+          <path d="M 0 344 C 141 325 258 365 389 340 S 647 331 777 354 S 857 355 900 340 L 900 440 L 0 440 Z" fill="#5c5068" opacity=".9" />
 
           <g clipPath="url(#landscape-ground)" opacity=".42">
             {Array.from({ length: 19 }, (_, index) => {
@@ -122,9 +168,8 @@ function Tapestry({ rows, priceChanges }) {
               const y = 316 + index * 25
               return <path key={`horizontal-${index}`} d={`M 0 ${y} H 900`} stroke="#d7d4a9" strokeWidth="1" />
             })}
-            {essentials.map((category, index) => {
-              const x = essentials.length === 1 ? 450 : 108 + index * (684 / (essentials.length - 1))
-              return <path key={category.category} d={`M ${x} 282 C ${x - 8} 326 ${x + 7} 372 ${x} 440`} fill="none" stroke={categoryColor(category.category, index)} strokeWidth={4 + category.spend / spendMax * 7} opacity=".82" />
+            {terrainPoints.map(({ category, x, y }, index) => {
+              return <path key={category.category} d={`M ${x} ${y + 3} C ${x - 8} 342 ${x + 7} 390 ${x} 440`} fill="none" stroke={categoryColor(category.category, index)} strokeWidth={4 + category.spend / spendMax * 7} opacity=".82" />
             })}
           </g>
 
@@ -141,8 +186,9 @@ function Tapestry({ rows, priceChanges }) {
 
           {accents.map((category, index) => {
             const x = accents.length === 1 ? 450 : 180 + index * (540 / (accents.length - 1))
-            const y = 108 + (index % 2) * 44
-            const radius = 8 + category.spend / spendMax * 11
+            const spendRatio = category.spend / spendMax
+            const y = 178 - spendRatio * 58
+            const radius = 8 + spendRatio * 11
             const color = categoryColor(category.category, index)
             return (
               <g key={category.category}>
@@ -157,14 +203,12 @@ function Tapestry({ rows, priceChanges }) {
           <div className="landscape-hotspots" role="group" aria-label="Select a category marker on the spending landscape">
             {categories.map((category, index) => {
               const isAccent = ACCENTS.has(category.category)
-              const groupIndex = isAccent
-                ? accents.findIndex((item) => item.category === category.category)
-                : essentials.findIndex((item) => item.category === category.category)
-              const groupLength = isAccent ? accents.length : essentials.length
-              const left = isAccent
-                ? groupLength === 1 ? 50 : 20 + groupIndex * (60 / (groupLength - 1))
-                : groupLength === 1 ? 50 : 12 + groupIndex * (76 / (groupLength - 1))
-              const top = isAccent ? 25 + (groupIndex % 2) * 10 : 74 + (groupIndex % 2) * 8
+              const accentIndex = accents.findIndex((item) => item.category === category.category)
+              const terrainPoint = terrainPoints.find((point) => point.category.category === category.category)
+              const accentX = accents.length === 1 ? 450 : 180 + accentIndex * (540 / (accents.length - 1))
+              const accentY = 178 - (category.spend / spendMax) * 58
+              const left = (isAccent ? accentX : terrainPoint?.x ?? 450) / 900 * 100
+              const top = (isAccent ? accentY : terrainPoint?.y ?? 310) / 440 * 100
               const color = categoryColor(category.category, index)
               return (
                 <button

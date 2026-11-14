@@ -16,6 +16,7 @@ function save(id) {
 
 export default function App() {
   const [household, setHousehold] = useState(null)
+  const [showSetup, setShowSetup] = useState(false)
   const [tab, setTab] = useState('Scan')
   const [error, setError] = useState('')
 
@@ -24,9 +25,11 @@ export default function App() {
       const h = await api.getHousehold(id)
       setHousehold(h)
       save(h.id)
+      setError('')
+      setShowSetup(false)
     } catch (e) {
       setError(e.message)
-      save(null)
+      if (!household) save(null)
     }
   }
 
@@ -35,7 +38,17 @@ export default function App() {
     if (id) load(id)
   }, [])
 
-  if (!household) return <Setup onReady={(h) => { setHousehold(h); save(h.id) }} onLoad={load} error={error} />
+  if (!household || showSetup) {
+    return (
+      <Setup
+        currentHousehold={household}
+        onCancel={() => setShowSetup(false)}
+        onReady={(h) => { setHousehold(h); save(h.id); setShowSetup(false); setError('') }}
+        onLoad={load}
+        error={error}
+      />
+    )
+  }
 
   return (
     <div className="app">
@@ -50,7 +63,7 @@ export default function App() {
           <span className="chip-divider" />
           <span>{household.members.map((m) => m.name).join(' · ')}</span>
         </div>
-        <button className="link switch-link" onClick={() => { setHousehold(null); save(null) }}>Switch household</button>
+        <button className="link switch-link" onClick={() => { setError(''); setShowSetup(true) }}>Switch household</button>
       </header>
       <div className="page-heading">
         <div>
