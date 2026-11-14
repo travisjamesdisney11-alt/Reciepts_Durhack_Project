@@ -66,3 +66,13 @@ API (all under `/api`):
 - Low-confidence lines highlighted; total mismatch warning; one-tap correction
 - Synthetic data is labelled as synthetic
 - TODO: consent toggle + anonymisation before anything reaches a business view
+
+
+KEYYYYYYYYYY
+-
+# Copy to .env and fill in ONE key. Never commit .env.
+GEMINI_API_KEY=AQ.Ab8RN6JZTMUErj2N9NRL2KpQUarXfngsxgGA8bET7H0qFx2wLQ
+# ANTHROPIC_API_KEY=
+# MOCK_LLM=1
+LLM_MODEL=gemini-3.5-flash-lite
+-
