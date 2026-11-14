@@ -189,6 +189,7 @@ def _call_gemini(tool: dict, prompt: str, jpeg: bytes | None, model: str) -> dic
 
 
 RETRYABLE = ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND",
+             "504", "DEADLINE_EXCEEDED", "deadline", "500", "INTERNAL",
              "529", "overloaded", "timed out", "timeout", "high demand")
 
 
