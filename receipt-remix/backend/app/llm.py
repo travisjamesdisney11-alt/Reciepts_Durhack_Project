@@ -1,17 +1,34 @@
 """All LLM calls live here: receipt extraction and split proposals.
 
-Uses Claude tool-use with a forced tool so the model must return JSON that
-matches our schema. Set MOCK_LLM=1 (or leave ANTHROPIC_API_KEY unset) to get
-canned responses, so the frontend can be built without spending credits.
+Works with either provider, both forced to return JSON matching our schema:
+  - Gemini (free tier):  put GEMINI_API_KEY in backend/.env
+  - Claude (paid):       put ANTHROPIC_API_KEY in backend/.env
+If both are set, LLM_PROVIDER=gemini|anthropic picks one.
+With no key (or MOCK_LLM=1) you get canned responses for UI work.
 """
 import base64
 import io
+import json
 import os
 
+from dotenv import load_dotenv
 from PIL import Image
 
-MODEL = os.environ.get("LLM_MODEL", "claude-sonnet-5-5")
-MOCK = os.environ.get("MOCK_LLM") == "1" or not os.environ.get("ANTHROPIC_API_KEY")
+load_dotenv()
+
+if os.environ.get("LLM_PROVIDER"):
+    PROVIDER = os.environ["LLM_PROVIDER"]
+elif os.environ.get("GEMINI_API_KEY"):
+    PROVIDER = "gemini"
+elif os.environ.get("ANTHROPIC_API_KEY"):
+    PROVIDER = "anthropic"
+else:
+    PROVIDER = None
+
+DEFAULT_MODELS = {"gemini": "gemini-3.8-flash", "anthropic": "claude-sonnet-5-5"}
+MODEL = os.environ.get("LLM_MODEL") or DEFAULT_MODELS.get(PROVIDER)
+MOCK = os.environ.get("MOCK_LLM") == "1" or PROVIDER is None
+print(f"[llm] {'MOCK mode' if MOCK else f'provider={PROVIDER} model={MODEL}'}")
 
 CATEGORIES = [
     "produce", "dairy_eggs", "meat_fish", "bakery", "frozen", "cupboard",
@@ -101,23 +118,24 @@ SPLIT_TOOL = {
 }
 
 
-def _client():
-    import anthropic  # imported lazily so mock mode works without the package
-    return anthropic.Anthropic()
-
-
-def _prepare_image(data: bytes) -> tuple[str, str]:
+def _prepare_image(data: bytes) -> bytes:
     """Shrink and re-encode as JPEG: phone photos are often too big for the API."""
     img = Image.open(io.BytesIO(data))
     img = img.convert("RGB")
     img.thumbnail((1568, 1568))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
-    return "image/jpeg", base64.standard_b64encode(buf.getvalue()).decode()
+    return buf.getvalue()
 
 
-def _call_tool(tool: dict, content: list) -> dict:
-    resp = _client().messages.create(
+def _call_anthropic(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
+    import anthropic  # imported lazily so other modes work without the package
+    content = []
+    if jpeg:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                    "data": base64.standard_b64encode(jpeg).decode()}})
+    content.append({"type": "text", "text": prompt})
+    resp = anthropic.Anthropic().messages.create(
         model=MODEL,
         max_tokens=4096,
         tools=[tool],
@@ -130,14 +148,42 @@ def _call_tool(tool: dict, content: list) -> dict:
     raise RuntimeError("Model did not return structured output")
 
 
+_gemini_client = None
+
+
+def _call_gemini(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
+    # Keep one client alive for the whole app: a client created inline gets
+    # garbage-collected (and closed) mid-request -> "client has been closed".
+    global _gemini_client
+    from google import genai
+    from google.genai import types
+    if _gemini_client is None:
+        _gemini_client = genai.Client()  # reads GEMINI_API_KEY
+    contents = []
+    if jpeg:
+        contents.append(types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"))
+    contents.append(prompt.replace(f"the {tool['name']} tool", "JSON"))
+    resp = _gemini_client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_json_schema=tool["input_schema"],
+        ),
+    )
+    return json.loads(resp.text)
+
+
+def _call(tool: dict, prompt: str, jpeg: bytes | None = None) -> dict:
+    if PROVIDER == "gemini":
+        return _call_gemini(tool, prompt, jpeg)
+    return _call_anthropic(tool, prompt, jpeg)
+
+
 def extract_receipt(image_bytes: bytes) -> dict:
     if MOCK:
         return _mock_receipt()
-    media_type, b64 = _prepare_image(image_bytes)
-    return _call_tool(EXTRACT_TOOL, [
-        {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64}},
-        {"type": "text", "text": EXTRACT_PROMPT},
-    ])
+    return _call(EXTRACT_TOOL, EXTRACT_PROMPT, _prepare_image(image_bytes))
 
 
 def propose_split(items: list[dict], members: list[str], payer: str | None, instruction: str) -> dict:
@@ -157,7 +203,7 @@ Assign every item to the members who should share its cost, using the
 propose_split tool. If the instruction doesn't mention an item, assume it is
 shared by everyone. Only use the names listed above. Put anything genuinely
 ambiguous in questions rather than guessing."""
-    return _call_tool(SPLIT_TOOL, [{"type": "text", "text": prompt}])
+    return _call(SPLIT_TOOL, prompt)
 
 
 def _mock_receipt() -> dict:

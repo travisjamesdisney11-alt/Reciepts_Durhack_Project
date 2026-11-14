@@ -1,5 +1,7 @@
 fastapi
-uvicorn[standard]
+uvicorn
 python-multipart
-anthropic
+python-dotenv
 pillow
+anthropic
+google-genai
