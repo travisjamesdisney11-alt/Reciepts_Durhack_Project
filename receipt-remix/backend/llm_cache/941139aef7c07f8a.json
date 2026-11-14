@@ -1,0 +1,47 @@
+{
+  "store": "Tesco Metro",
+  "purchased_at": "2012-04-23",
+  "currency": "GBP",
+  "total": 5.08,
+  "items": [
+    {
+      "raw_text": "FRESH MILK 0.89",
+      "name": "Fresh Milk",
+      "canonical_name": "tesco fresh milk",
+      "brand": "Tesco",
+      "category": "dairy_eggs",
+      "quantity": 1,
+      "price": 0.89,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "MJESLI 2.29",
+      "name": "Muesli",
+      "canonical_name": "tesco muesli",
+      "brand": "Tesco",
+      "category": "cupboard",
+      "quantity": 1,
+      "price": 2.29,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.9
+    },
+    {
+      "raw_text": "DARK CHOCOLATE * 2 @ \u00a30.95 1.90",
+      "name": "Dark Chocolate",
+      "canonical_name": "tesco dark chocolate",
+      "brand": "Tesco",
+      "category": "snacks_treats",
+      "quantity": 2,
+      "price": 1.9,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    }
+  ]
+}

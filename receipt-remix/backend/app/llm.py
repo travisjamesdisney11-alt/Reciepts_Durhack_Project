@@ -28,7 +28,18 @@ else:
 DEFAULT_MODELS = {"gemini": "gemini-3.8-flash", "anthropic": "claude-sonnet-5-5"}
 MODEL = os.environ.get("LLM_MODEL") or DEFAULT_MODELS.get(PROVIDER)
 MOCK = os.environ.get("MOCK_LLM") == "1" or PROVIDER is None
-print(f"[llm] {'MOCK mode' if MOCK else f'provider={PROVIDER} model={MODEL}'}")
+
+# Backup models tried in order when the main one is overloaded (503), rate
+# limited (429) or not found (404). Override with a comma-separated list.
+DEFAULT_FALLBACKS = {"gemini": "gemini-3.5-flash-lite,gemini-3.6-flash,gemini-3.1-flash-lite",
+                     "anthropic": "claude-haiku-5-5"}
+FALLBACKS = [m.strip() for m in os.environ.get("LLM_FALLBACK_MODELS", DEFAULT_FALLBACKS.get(PROVIDER, "")).split(",")
+             if m.strip() and m.strip() != MODEL]
+print(f"[llm] {'MOCK mode' if MOCK else f'provider={PROVIDER} model={MODEL} fallbacks={FALLBACKS}'}")
+
+# Scanned receipts are cached by image hash: re-uploading the same photo is
+# instant and works even when the API is down (your demo safety net).
+CACHE_DIR = os.environ.get("LLM_CACHE_DIR", "llm_cache")
 
 CATEGORIES = [
     "produce", "dairy_eggs", "meat_fish", "bakery", "frozen", "cupboard",
@@ -128,15 +139,15 @@ def _prepare_image(data: bytes) -> bytes:
     return buf.getvalue()
 
 
-def _call_anthropic(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
+def _call_anthropic(tool: dict, prompt: str, jpeg: bytes | None, model: str) -> dict:
     import anthropic  # imported lazily so other modes work without the package
     content = []
     if jpeg:
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.standard_b64encode(jpeg).decode()}})
     content.append({"type": "text", "text": prompt})
-    resp = anthropic.Anthropic().messages.create(
-        model=MODEL,
+    resp = anthropic.Anthropic(max_retries=1, timeout=60).messages.create(
+        model=model,
         max_tokens=4096,
         tools=[tool],
         tool_choice={"type": "tool", "name": tool["name"]},
@@ -151,20 +162,23 @@ def _call_anthropic(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
 _gemini_client = None
 
 
-def _call_gemini(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
+def _call_gemini(tool: dict, prompt: str, jpeg: bytes | None, model: str) -> dict:
     # Keep one client alive for the whole app: a client created inline gets
     # garbage-collected (and closed) mid-request -> "client has been closed".
     global _gemini_client
     from google import genai
     from google.genai import types
     if _gemini_client is None:
-        _gemini_client = genai.Client()  # reads GEMINI_API_KEY
+        # 60 s timeout and no silent retries: if a model is busy we move
+        # straight on to the next fallback model instead of waiting.
+        _gemini_client = genai.Client(http_options=types.HttpOptions(
+            timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1)))  # reads GEMINI_API_KEY
     contents = []
     if jpeg:
         contents.append(types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"))
     contents.append(prompt.replace(f"the {tool['name']} tool", "JSON"))
     resp = _gemini_client.models.generate_content(
-        model=MODEL,
+        model=model,
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -174,16 +188,46 @@ def _call_gemini(tool: dict, prompt: str, jpeg: bytes | None) -> dict:
     return json.loads(resp.text)
 
 
+RETRYABLE = ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND",
+             "529", "overloaded", "timed out", "timeout", "high demand")
+
+
 def _call(tool: dict, prompt: str, jpeg: bytes | None = None) -> dict:
-    if PROVIDER == "gemini":
-        return _call_gemini(tool, prompt, jpeg)
-    return _call_anthropic(tool, prompt, jpeg)
+    """Try the main model, then each fallback, moving on when one is busy."""
+    import time
+    fn = _call_gemini if PROVIDER == "gemini" else _call_anthropic
+    errors = []
+    for model in [MODEL, *FALLBACKS]:
+        start = time.time()
+        print(f"[llm] {tool['name']}: calling {PROVIDER}/{model}" + (f" with {len(jpeg) // 1024} KB image" if jpeg else ""), flush=True)
+        try:
+            result = fn(tool, prompt, jpeg, model)
+            print(f"[llm] {tool['name']}: done in {time.time() - start:.1f}s using {model}", flush=True)
+            return result
+        except Exception as e:
+            msg = str(e)
+            print(f"[llm] {tool['name']}: {model} FAILED after {time.time() - start:.1f}s: {msg[:200]}", flush=True)
+            errors.append(f"{model}: {msg[:120]}")
+            if not any(k.lower() in msg.lower() for k in RETRYABLE):
+                raise  # a real bug (bad key, bad request): don't hide it behind fallbacks
+    raise RuntimeError("All models are busy right now, try again in a minute. " + " | ".join(errors))
 
 
 def extract_receipt(image_bytes: bytes) -> dict:
     if MOCK:
         return _mock_receipt()
-    return _call(EXTRACT_TOOL, EXTRACT_PROMPT, _prepare_image(image_bytes))
+    import hashlib
+    key = hashlib.sha256(image_bytes).hexdigest()[:16]
+    path = os.path.join(CACHE_DIR, f"{key}.json")
+    if os.path.exists(path):
+        print(f"[llm] record_receipt: cache hit {key}", flush=True)
+        with open(path) as f:
+            return json.load(f)
+    result = _call(EXTRACT_TOOL, EXTRACT_PROMPT, _prepare_image(image_bytes))
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(result, f, indent=2)
+    return result
 
 
 def propose_split(items: list[dict], members: list[str], payer: str | None, instruction: str) -> dict:
