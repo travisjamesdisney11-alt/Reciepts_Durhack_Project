@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import NearbyPrices from './NearbyPrices.jsx'
 import LocalPriceFinder from './LocalPriceFinder.jsx'
 
 const CATEGORY_COLOR_SLOTS = {
@@ -1036,7 +1035,6 @@ export default function Insights({ household }) {
         <>
           <Tapestry rows={data.spend_by_category} priceChanges={data.price_changes} />
           <LocalPriceFinder householdId={household.id} />
-          <NearbyPrices householdId={household.id} />
           <div className="insight-intro">
             <div>
               <p className="eyebrow">THE STORY IN YOUR RECEIPTS</p>
