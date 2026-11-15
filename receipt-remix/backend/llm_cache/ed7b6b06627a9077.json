@@ -1,0 +1,73 @@
+{
+  "store": "The Sun Inn",
+  "purchased_at": "2025-04-19",
+  "currency": "GBP",
+  "total": 65.45,
+  "items": [
+    {
+      "raw_text": "1 SAUV BLANC 175 \u00a35.80",
+      "name": "Sauvignon Blanc 175ml",
+      "canonical_name": "sauvignon blanc 175ml",
+      "brand": "The Sun Inn",
+      "category": "alcohol",
+      "quantity": 1,
+      "price": 5.8,
+      "discount": 0,
+      "size_value": 175,
+      "size_unit": "ml",
+      "confidence": 0.98
+    },
+    {
+      "raw_text": "1 SODA L/DASH \u00a30.00",
+      "name": "Soda Lime Dash",
+      "canonical_name": "soda lime dash",
+      "brand": "The Sun Inn",
+      "category": "drinks",
+      "quantity": 1,
+      "price": 0,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "1 PRESS \u00a35.40",
+      "name": "Press",
+      "canonical_name": "press",
+      "brand": "The Sun Inn",
+      "category": "drinks",
+      "quantity": 1,
+      "price": 5.4,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.9
+    },
+    {
+      "raw_text": "1 DOUBLEDUTCH \u00a33.40",
+      "name": "Double Dutch Mixer",
+      "canonical_name": "double dutch mixer",
+      "brand": "Double Dutch",
+      "category": "drinks",
+      "quantity": 1,
+      "price": 3.4,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "3 CARVERY \u00a350.85",
+      "name": "Carvery",
+      "canonical_name": "carvery",
+      "brand": "The Sun Inn",
+      "category": "ready_meals",
+      "quantity": 3,
+      "price": 50.85,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "each",
+      "confidence": 0.98
+    }
+  ]
+}

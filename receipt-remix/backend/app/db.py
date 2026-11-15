@@ -75,6 +75,15 @@ CREATE TABLE IF NOT EXISTS assignments (
     member_id INTEGER NOT NULL REFERENCES members(id),
     PRIMARY KEY (line_item_id, member_id)
 );
+CREATE TABLE IF NOT EXISTS price_sharing_consents (
+    household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+    area_code TEXT,
+    consent_version TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (household_id, user_id)
+);
 """
 
 

@@ -10,6 +10,19 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from . import auth, db, llm
+from .nearby_prices import (
+    CONSENT_VERSION,
+    canonical_product_key,
+    nearby_price_status,
+    normalize_area_code,
+)
+from .shop_prices import (
+    ExternalServiceError,
+    InvalidPostcodeError,
+    PriceProviderNotConfigured,
+    find_nearby_shops,
+    search_online_offers,
+)
 
 app = FastAPI(title="Receipt Remix")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -68,6 +81,19 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: str
     password: str
+
+
+class NearbyPriceConsentIn(BaseModel):
+    enabled: bool
+    area_code: str | None = None
+
+
+class NearbyShopSearchIn(BaseModel):
+    postcode: str
+
+
+class OnlineOfferSearchIn(BaseModel):
+    product: str
 
 
 def get_current_user(
@@ -428,6 +454,79 @@ def balances(hid: int, user: dict = Depends(get_current_user)):
 
 # ---------- insights ----------
 
+@api.get("/households/{hid}/nearby-prices")
+def get_nearby_prices(hid: int, user: dict = Depends(get_current_user)):
+    with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
+        return nearby_price_status(conn, hid, user["id"], LOW_CONFIDENCE)
+
+
+@api.put("/households/{hid}/nearby-prices/consent")
+def update_nearby_price_consent(
+    hid: int,
+    body: NearbyPriceConsentIn,
+    user: dict = Depends(get_current_user),
+):
+    area_code = normalize_area_code(body.area_code) if body.enabled else None
+    if body.enabled and not area_code:
+        raise HTTPException(400, "Enter a postcode district such as DH1, not a full postcode")
+
+    with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
+        conn.execute(
+            """INSERT INTO price_sharing_consents
+                   (household_id, user_id, enabled, area_code, consent_version)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(household_id, user_id) DO UPDATE SET
+                   enabled = excluded.enabled,
+                   area_code = excluded.area_code,
+                   consent_version = excluded.consent_version,
+                   updated_at = CURRENT_TIMESTAMP""",
+            (
+                hid,
+                user["id"],
+                int(body.enabled),
+                area_code,
+                CONSENT_VERSION if body.enabled else None,
+            ),
+        )
+        return nearby_price_status(conn, hid, user["id"], LOW_CONFIDENCE)
+
+
+@api.post("/households/{hid}/nearby-shops")
+def get_nearby_shops(
+    hid: int,
+    body: NearbyShopSearchIn,
+    user: dict = Depends(get_current_user),
+):
+    with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
+    try:
+        return find_nearby_shops(body.postcode)
+    except InvalidPostcodeError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@api.post("/households/{hid}/online-offers")
+def get_online_offers(
+    hid: int,
+    body: OnlineOfferSearchIn,
+    user: dict = Depends(get_current_user),
+):
+    with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
+    try:
+        return search_online_offers(body.product)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except PriceProviderNotConfigured as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
 @api.get("/households/{hid}/insights")
 def insights(hid: int, user: dict = Depends(get_current_user)):
     """Return household totals and per-member shares from confirmed item splits."""
@@ -523,10 +622,9 @@ def price_changes(history: list[dict]) -> list[dict]:
     Shrinkflation is matched on a looser key (canonical name minus the size token)
     so '...500g' and '...450g' versions count as the same product.
     """
-    import re
     groups = defaultdict(list)
     for h in history:
-        key = re.sub(r"\s*\d+(\.\d+)?\s*(g|kg|ml|l|cl|pt|pint|pk|x\d+)\b", "", h["canonical_name"]).strip()
+        key = canonical_product_key(h["canonical_name"])
         groups[key].append(h)
     out = []
     for key, hs in groups.items():

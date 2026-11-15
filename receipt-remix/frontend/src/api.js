@@ -46,4 +46,8 @@ export const api = {
   confirmSplit: (id, assignments) => req(`/receipts/${id}/split`, json('PUT', { assignments })),
   balances: (id) => req(`/households/${id}/balances`),
   insights: (id) => req(`/households/${id}/insights`),
+  nearbyPrices: (id) => req(`/households/${id}/nearby-prices`),
+  setNearbyPriceConsent: (id, data) => req(`/households/${id}/nearby-prices/consent`, json('PUT', data)),
+  nearbyShops: (id, postcode) => req(`/households/${id}/nearby-shops`, json('POST', { postcode })),
+  onlineOffers: (id, product) => req(`/households/${id}/online-offers`, json('POST', { product })),
 }
