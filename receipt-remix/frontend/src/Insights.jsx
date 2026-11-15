@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 
-const ESSENTIALS = new Set(['produce', 'dairy_eggs', 'meat_fish', 'bakery', 'frozen', 'cupboard', 'household_cleaning', 'laundry', 'toiletries_personal_care', 'baby_care', 'feminine_care', 'health_medicine', 'pet'])
 const CATEGORY_COLOR_SLOTS = {
   produce: 0,
   dairy_eggs: 1,
@@ -22,7 +21,7 @@ const CATEGORY_COLOR_SLOTS = {
   ready_meals: 2,
 }
 const BIOME_CATEGORY_PALETTES = {
-  city: ['#ffb84d', '#ff668b', '#a67bff', '#44d6d1', '#f4df61', '#ff8861'],
+  city: ['#f5b5c8', '#f3c08e', '#e58db6', '#9e9bd7', '#f7d38a', '#d58eb0'],
   night_market: ['#ff5cae', '#53e1c0', '#ffd166', '#9e83ff', '#ff805b', '#89e9f4'],
   jungle: ['#b2df52', '#ff9954', '#4ed1a9', '#f6d54d', '#9074f2', '#ff6f8e'],
   forest: ['#87cf68', '#e9b54e', '#51bc91', '#f1d267', '#d17b68', '#b69adf'],
@@ -32,22 +31,42 @@ const BIOME_CATEGORY_PALETTES = {
   desert: ['#ff9148', '#f5c34a', '#ec6f61', '#9ec04e', '#c179d0', '#ffdc85'],
   alpine: ['#53c7d2', '#e8bf66', '#ff8177', '#76a4ed', '#ae8edf', '#d6e987'],
   meadow: ['#ef86b3', '#ffce67', '#8bd276', '#72c7df', '#a58bdd', '#f3a074'],
+  fairground: ['#ff83b7', '#ffd567', '#9fe5dd', '#a887e8', '#ff9a72', '#f5a7d6'],
+}
+const CATEGORY_BIOMES = {
+  bakery: 'meadow',
+  drinks: 'night_market',
+  alcohol: 'night_market',
+  produce: 'desert',
+  dairy_eggs: 'tundra',
+  frozen: 'tundra',
+  ready_meals: 'city',
+  snacks_treats: 'fairground',
+  meat_fish: 'alpine',
+  cupboard: 'desert',
+  household_cleaning: 'forest',
+  laundry: 'forest',
+  toiletries_personal_care: 'forest',
+  baby_care: 'forest',
+  feminine_care: 'forest',
+  health_medicine: 'forest',
+  pet: 'forest',
 }
 const LANDSCAPE_PROFILES = {
   city: {
-    name: 'Corner-Shop City',
-    mood: 'treat-rush',
+    name: 'Cosy Supper City',
+    mood: 'soft-evening',
     celestial: 'sun',
-    headings: ['The snack district has the corner office.', 'A skyline built one little treat at a time.', 'Ready meals are running this town.'],
-    captions: ['Your treat budget has a city pass and no plans to go home early.', 'Convenience is in its downtown era; the kettle has filed for overtime.', 'Small bites, big-city energy. The snack council has called a meeting.'],
-    colors: { sky: '#392257', mid: '#a43c74', horizon: '#ff9554', far: '#744ca4', near: '#b54770', ground: '#5d2f60', deep: '#2a1c42', sun: '#ffd36a', glow: '#ff7b71' },
+    headings: ['The supper district is winding down softly.', 'Ready meals, city lights, and no rush home.', 'A little evening comfort, delivered by the skyline.'],
+    captions: ['Ready meals brought the city to golden hour and saved you a cosy seat.', 'A soft pink skyline, something warm for dinner, and absolutely no rush.', 'The evening district is glowing gently; even the streetlights sound cosy.'],
+    colors: { sky: '#443450', mid: '#9e617f', horizon: '#f0a99f', far: '#b87891', near: '#94627f', ground: '#654a64', deep: '#352b45', sun: '#ffe0a6', glow: '#f5acc3' },
   },
   night_market: {
-    name: 'Neon Night Market',
-    mood: 'after-hours',
+    name: 'Midnight Drinks District',
+    mood: 'neon-and-chaotic',
     celestial: 'moon',
-    headings: ['The night market is open; your budget knows the vendors.', 'A little after-hours sparkle, coming right up.', 'The moon has competition from the drinks shelf.'],
-    captions: ['Alcohol spending brought its own neon sign and forgot to turn it off.', 'The late-night refreshment district is glowing a little brighter this week.', 'A moonlit market, a lively basket, and absolutely no last call for puns.'],
+    headings: ['The drinks district has definitely missed its curfew.', 'A skyline with one more round in it.', 'The night is young; the receipts are louder.'],
+    captions: ['Drinks took over downtown, switched on every sign, and lost the volume knob.', 'The skyline is buzzing. The drinks aisle has become a nightlife district.', 'A moonlit city, a lively drinks run, and absolutely no quiet streets tonight.'],
     colors: { sky: '#101b46', mid: '#302b79', horizon: '#ae397e', far: '#442b8b', near: '#51276d', ground: '#30215f', deep: '#171739', sun: '#fff0a8', glow: '#ff5ead' },
   },
   jungle: {
@@ -67,11 +86,11 @@ const LANDSCAPE_PROFILES = {
     colors: { sky: '#244d3b', mid: '#5f8c46', horizon: '#d8a842', far: '#38633e', near: '#315544', ground: '#2c503b', deep: '#163628', sun: '#ffe684', glow: '#f7bd4f' },
   },
   tundra: {
-    name: 'Price-Check Tundra',
-    mood: 'price-pinched',
+    name: 'Dairy Taiga',
+    mood: 'cold-and-cosy',
     celestial: 'moon',
-    headings: ['Checkout has entered its frost era.', 'The receipt called. It wants a warmer coat.', 'A chilly forecast with a very expensive wind.'],
-    captions: ['Prices are inching upward; your receipt has requested an extra layer.', 'The checkout line is colder than the weather app today.', 'A little price pressure, a lot of dramatic glacier energy.'],
+    headings: ['The dairy aisle has built itself an igloo.', 'Fresh milk, frosted pines, and a quiet horizon.', 'Your dairy spend has gone full taiga.'],
+    captions: ['Dairy is leading the expedition; the milk has packed a tiny scarf.', 'The receipt is crisp, the pines are frosted, and the butter is thriving.', 'A peaceful taiga of dairy, snow-soft hills, and one very cosy igloo.'],
     frozenHeadings: ['The freezer aisle has claimed the horizon.', 'Your frozen-food era looks positively glacial.', 'Cold storage, cooler landscape.'],
     frozenCaptions: ['Frozen favourites are the headliners; the forecast is one-degree-chiller.', 'The freezer aisle has expanded into a full expedition.', 'Your peas are thriving. The penguins have started a fan club.'],
     colors: { sky: '#183d78', mid: '#3b6fb3', horizon: '#65c9d0', far: '#91dce3', near: '#72bad6', ground: '#79bdce', deep: '#4d8da9', sun: '#ffe8ad', glow: '#9ce4f0' },
@@ -93,11 +112,11 @@ const LANDSCAPE_PROFILES = {
     colors: { sky: '#173951', mid: '#1c7371', horizon: '#8bc769', far: '#247f6a', near: '#176354', ground: '#28684d', deep: '#17453e', sun: '#ffe5a0', glow: '#74e6bd' },
   },
   desert: {
-    name: 'Pantry Dunes',
-    mood: 'well-stocked',
+    name: 'Produce Pyramid Valley',
+    mood: 'sun-grown',
     celestial: 'sun',
-    headings: ['The pantry has entered its dune era.', 'Shelf-stable, sun-soaked, and thriving.', 'Your cupboards are giving oasis energy.'],
-    captions: ['Cupboard staples are piling up like dunes. Somewhere, a chickpea feels seen.', 'A well-stocked pantry: the mirage is just another tin of beans.', 'The cupboard is prepared for anything except one more lentil pun.'],
+    headings: ['The produce has built a pyramid in the sun.', 'Fresh greens, warm dunes, and a very ripe oasis.', 'The fruit bowl has become a desert landmark.'],
+    captions: ['Produce is growing between the dunes; a cactus has requested a salad.', 'The pyramids are glowing, the plants are thriving, and the mango is important.', 'Your greens went desert expedition. Hydration breaks are strongly advised.'],
     colors: { sky: '#b63846', mid: '#ed6844', horizon: '#ffd166', far: '#d95d46', near: '#b9473d', ground: '#d77a38', deep: '#76402d', sun: '#fff0a2', glow: '#ff9950' },
   },
   alpine: {
@@ -109,12 +128,20 @@ const LANDSCAPE_PROFILES = {
     colors: { sky: '#176ca1', mid: '#57abb4', horizon: '#ffd18b', far: '#4f94a9', near: '#39758b', ground: '#557f70', deep: '#264d61', sun: '#fff1bd', glow: '#92dfe2' },
   },
   meadow: {
-    name: 'Bakery Meadow',
-    mood: 'fresh-from-the-oven',
+    name: 'Bakery Cottage Meadow',
+    mood: 'peaceful-and-risen',
     celestial: 'sun',
-    headings: ['The bakery has gone country.', 'A loafly little patch of spending.', 'Fresh bakes are in full bloom.'],
-    captions: ['Bakery spending is rising. The wildflowers smell faintly of sourdough.', 'A fresh loaf has become the local celebrity. Crumbs are invited.', 'The meadow is proof that good things take thyme to rise.'],
+    headings: ['The bakery village has opened its cottage shutters.', 'A peaceful loaf-shaped corner of the countryside.', 'Fresh bakes are in full bloom.'],
+    captions: ['Bakery spending is rising; the cottage windows smell faintly of sourdough.', 'A fresh loaf became the village celebrity. Crumbs are invited to tea.', 'The meadow is proof that good things take thyme to rise.'],
     colors: { sky: '#5868a7', mid: '#a35b96', horizon: '#ffa95d', far: '#7a9561', near: '#60804d', ground: '#728b45', deep: '#3c573b', sun: '#fff08c', glow: '#ffa56e' },
+  },
+  fairground: {
+    name: 'Candyland Fairground',
+    mood: 'sweet-and-spinning',
+    celestial: 'sun',
+    headings: ['The snack aisle has opened a tiny circus.', 'Step right up to the candy-coloured skyline.', 'Your treats have booked the big top.'],
+    captions: ['Snacks and sweets took over the fairground; the popcorn is in charge.', 'A little candy-coloured chaos, with complimentary carousel music.', 'The sweets have opened a circus and the gummy bears are headlining.'],
+    colors: { sky: '#54376f', mid: '#a95b96', horizon: '#f58aa1', far: '#c7699c', near: '#a45183', ground: '#794776', deep: '#39284f', sun: '#ffe080', glow: '#ff9fcf' },
   },
 }
 const TERRAIN_SHAPES = {
@@ -128,6 +155,7 @@ const TERRAIN_SHAPES = {
   desert: { base: 326, relief: 70 },
   alpine: { base: 316, relief: 128 },
   meadow: { base: 325, relief: 67 },
+  fairground: { base: 326, relief: 72 },
 }
 const NIGHT_STARS = [
   { x: 77, y: 58 }, { x: 152, y: 118 }, { x: 254, y: 52 }, { x: 367, y: 105 },
@@ -141,19 +169,83 @@ const BIOME_LANDMARKS = {
   tundra: ['mountain', 'mountain', 'igloo'],
   coast: ['lighthouse', 'cottage', 'tree'],
   wetlands: ['tree', 'cottage', 'lighthouse'],
-  desert: ['volcano', 'volcano', 'cottage'],
+  desert: ['pyramid', 'pyramid', 'cottage'],
   alpine: ['mountain', 'mountain', 'cottage'],
   meadow: ['cottage', 'tree', 'cottage'],
+  fairground: ['tent', 'ferris_wheel'],
 }
 
 function categoryLabel(category) {
   return String(category).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-function categoryColor(category, index, biome, paletteOffset = 0) {
-  const palette = BIOME_CATEGORY_PALETTES[biome] ?? BIOME_CATEGORY_PALETTES.coast
+function biomeForCategory(category) {
+  return CATEGORY_BIOMES[category] ?? 'coast'
+}
+
+function colorChannels(color) {
+  return [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))
+}
+
+function colorHex(channels) {
+  return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`
+}
+
+function averageThemeColor(categories, selectColor, fallback) {
+  const totalWeight = categories.reduce((total, category) => total + Math.max(0, category.spend), 0)
+  if (!totalWeight) return fallback
+  const channels = [0, 0, 0]
+  for (const category of categories) {
+    const weight = Math.max(0, category.spend) / totalWeight
+    const selected = colorChannels(selectColor(category))
+    selected.forEach((channel, index) => { channels[index] += channel * weight })
+  }
+  return colorHex(channels)
+}
+
+function blendTheme(categories, biome, totalSpend) {
+  const profile = LANDSCAPE_PROFILES[biome]
+  const secondary = categories.slice(1).filter((category) => category.spend > 0)
+  const secondarySpend = secondary.reduce((total, category) => total + category.spend, 0)
+  const blendWeight = totalSpend ? Math.min(0.28, (secondarySpend / totalSpend) * 0.4) : 0
+  if (!blendWeight) {
+    return {
+      colors: profile.colors,
+      categoryPalette: BIOME_CATEGORY_PALETTES[biome],
+      blendWeight,
+    }
+  }
+
+  const colors = Object.fromEntries(Object.keys(profile.colors).map((key) => {
+    const secondaryColor = averageThemeColor(
+      secondary,
+      (category) => LANDSCAPE_PROFILES[biomeForCategory(category.category)].colors[key],
+      profile.colors[key],
+    )
+    const base = colorChannels(profile.colors[key])
+    const other = colorChannels(secondaryColor)
+    return [key, colorHex(base.map((channel, index) => channel * (1 - blendWeight) + other[index] * blendWeight))]
+  }))
+  const categoryPalette = BIOME_CATEGORY_PALETTES[biome].map((baseColor, index) => {
+    const secondaryColor = averageThemeColor(
+      secondary,
+      (category) => BIOME_CATEGORY_PALETTES[biomeForCategory(category.category)][index],
+      baseColor,
+    )
+    const base = colorChannels(baseColor)
+    const other = colorChannels(secondaryColor)
+    return colorHex(base.map((channel, channelIndex) =>
+      channel * (1 - blendWeight) + other[channelIndex] * blendWeight
+    ))
+  })
+
+  return { colors, categoryPalette, blendWeight }
+}
+
+function categoryColor(category, index, profile) {
+  const palette = profile.categoryPalette ?? BIOME_CATEGORY_PALETTES[profile.biome]
   const slot = CATEGORY_COLOR_SLOTS[category] ?? index
-  return palette[(slot + paletteOffset) % palette.length]
+  return palette[(slot + profile.paletteOffset) % palette.length]
 }
 
 function hashText(value) {
@@ -171,9 +263,13 @@ function seededValue(seed, salt) {
 }
 
 function landmarkType(category, biome, variation) {
+  if (category === 'produce' && biome === 'desert') return 'pyramid'
+  if (category === 'dairy_eggs' && biome === 'tundra') return 'igloo'
+  if (category === 'snacks_treats' && biome === 'fairground') {
+    return BIOME_LANDMARKS.fairground[Math.floor(variation * BIOME_LANDMARKS.fairground.length)]
+  }
   if (category === 'alcohol') {
     if (['city', 'night_market'].includes(biome)) return 'building'
-    if (biome === 'tundra') return 'cottage'
     return 'vineyard'
   }
   if (category === 'frozen' && biome === 'tundra') return 'igloo'
@@ -184,36 +280,15 @@ function landmarkType(category, biome, variation) {
 }
 
 function landscapeProfile(categories, priceChanges, memberName, memberId) {
-  const totalSpend = categories.reduce((total, category) => total + category.spend, 0)
-  const shareFor = (predicate) => totalSpend
-    ? categories.reduce((total, category) => total + (predicate(category.category) ? category.spend : 0), 0) / totalSpend
-    : 0
-  const snackShare = shareFor((category) => ['snacks_treats', 'ready_meals'].includes(category))
-  const alcoholShare = shareFor((category) => category === 'alcohol')
-  const drinkShare = shareFor((category) => category === 'drinks')
-  const produceShare = shareFor((category) => category === 'produce')
-  const pantryShare = shareFor((category) => category === 'cupboard')
-  const bakeryShare = shareFor((category) => category === 'bakery')
-  const frozenShare = shareFor((category) => category === 'frozen')
-  const heartyShare = shareFor((category) => ['dairy_eggs', 'meat_fish'].includes(category))
-  const homeCareShare = shareFor((category) => ['household_cleaning', 'laundry', 'toiletries_personal_care', 'baby_care', 'feminine_care'].includes(category))
-  const essentialsShare = shareFor((category) => ESSENTIALS.has(category))
+  const totalSpend = categories.reduce((total, category) => total + Math.max(0, category.spend), 0)
   const largestPriceRise = Math.max(0, ...priceChanges.map((item) =>
     item.unit_price_change_pct ?? item.price_change_pct ?? 0
   ))
-  let biome = 'coast'
-  if (largestPriceRise >= 12 || frozenShare >= 0.3) biome = 'tundra'
-  else if (alcoholShare >= 0.2) biome = 'night_market'
-  else if (drinkShare >= 0.28) biome = 'wetlands'
-  else if (snackShare >= 0.25) biome = 'city'
-  else if (produceShare >= 0.25) biome = 'jungle'
-  else if (pantryShare >= 0.35) biome = 'desert'
-  else if (bakeryShare >= 0.25) biome = 'meadow'
-  else if (heartyShare >= 0.45) biome = 'alpine'
-  else if (homeCareShare >= 0.4 || essentialsShare >= 0.6) biome = 'forest'
+  const biome = biomeForCategory(categories[0]?.category)
   const profile = LANDSCAPE_PROFILES[biome]
-  const headings = biome === 'tundra' && largestPriceRise < 12 ? profile.frozenHeadings : profile.headings
-  const captions = biome === 'tundra' && largestPriceRise < 12 ? profile.frozenCaptions : profile.captions
+  const frozenFocus = categories[0]?.category === 'frozen'
+  const headings = frozenFocus ? profile.frozenHeadings ?? profile.headings : profile.headings
+  const captions = frozenFocus ? profile.frozenCaptions ?? profile.captions : profile.captions
   const spendSignature = [...categories]
     .sort((left, right) => left.category.localeCompare(right.category))
     .map((category) => `${category.category}:${category.spend.toFixed(2)}`)
@@ -224,14 +299,16 @@ function landscapeProfile(categories, priceChanges, memberName, memberId) {
     .join('|')
   const identity = memberId ?? memberName ?? 'household'
   const sceneSeed = hashText(`${identity}|${spendSignature}|${trendSignature}`)
+  const blended = blendTheme(categories, biome, totalSpend)
   const variant = sceneSeed % captions.length
   return {
     ...profile,
+    ...blended,
     biome,
     sceneSeed,
-    paletteOffset: sceneSeed % BIOME_CATEGORY_PALETTES[biome].length,
+    paletteOffset: sceneSeed % blended.categoryPalette.length,
     largestPriceRise,
-    mood: biome === 'tundra' && largestPriceRise < 12 ? 'freezer-favorite' : profile.mood,
+    mood: frozenFocus ? 'freezer-favorite' : profile.mood,
     heading: headings[variant],
     caption: captions[variant],
   }
@@ -394,7 +471,7 @@ function BiomeScenery({ profile, spendScale }) {
           ))}
         </g>
       )}
-      {['forest', 'jungle', 'meadow'].includes(biome) && (
+      {['forest', 'jungle', 'meadow', 'tundra'].includes(biome) && (
         <g>
           <path d={`M 0 ${horizon + 82} Q 172 ${horizon + 18} 352 ${horizon + 77} T 700 ${horizon + 56} T 900 ${horizon + 76} L 900 365 L 0 365 Z`} fill="url(#landscape-distant)" opacity=".58" />
           {Array.from({ length: 12 }, (_, index) => {
@@ -418,6 +495,25 @@ function BiomeScenery({ profile, spendScale }) {
         <g fill="none" strokeLinecap="round">
           <path d={`M 0 ${horizon + 76} Q 165 ${horizon + 5} 328 ${horizon + 76} T 650 ${horizon + 51} T 900 ${horizon + 76}`} stroke={colors.far} strokeWidth="42" opacity=".48" />
           <path d={`M 0 ${horizon + 98} Q 186 ${horizon + 43} 366 ${horizon + 98} T 704 ${horizon + 82} T 900 ${horizon + 98}`} stroke={colors.near} strokeWidth="36" opacity=".62" />
+        </g>
+      )}
+      {biome === 'fairground' && (
+        <g>
+          <path d="M 28 177 Q 260 219 470 177 T 872 177" fill="none" stroke={colors.deep} strokeWidth="2" opacity=".65" />
+          {Array.from({ length: 11 }, (_, index) => {
+            const x = 58 + index * 78
+            const y = 181 + Math.sin(index / 10 * Math.PI) * 13
+            const buntingColor = [colors.glow, colors.sun, colors.far][index % 3]
+            return (
+              <path
+                key={`fairground-flag-${index}`}
+                d={`M ${x - 9} ${y} L ${x + 9} ${y + 2} L ${x} ${y + 17} Z`}
+                fill={buntingColor}
+                opacity=".84"
+              />
+            )
+          })}
+          <ellipse cx="450" cy="228" rx="360" ry="38" fill={colors.glow} opacity=".08" filter="url(#landscape-soft)" />
         </g>
       )}
       {biome === 'tundra' && (
@@ -506,6 +602,41 @@ function LandscapeLandmark({ landmark, selected }) {
           <path d={`M 0 ${-height * 0.89} L ${-width * 0.55} ${-height * 0.98} M 0 ${-height * 0.89} L ${width * 0.55} ${-height * 0.98}`} stroke={colors.sun} strokeWidth="3" />
         </>
       )}
+      {type === 'pyramid' && (
+        <>
+          <path d={`M ${-width / 2} 0 L 0 ${-height} L ${width / 2} 0 Z`} fill="url(#landscape-structure)" />
+          <path d={`M 0 ${-height} L ${width * 0.14} 0 H ${width / 2} Z`} fill={colors.deep} opacity=".24" stroke="none" />
+          <path d={`M ${-width * 0.24} ${-height * 0.3} H ${width * 0.24} M ${-width * 0.34} ${-height * 0.16} H ${width * 0.34}`} fill="none" stroke={colors.sun} strokeWidth="1.5" opacity=".7" />
+        </>
+      )}
+      {type === 'tent' && (
+        <>
+          <path d={`M ${-width / 2} 0 L 0 ${-height} L ${width / 2} 0 Z`} fill="url(#landscape-structure)" />
+          <path d={`M ${-width / 2} 0 L 0 ${-height} L 0 0 Z`} fill={color} opacity=".72" />
+          <path d={`M 0 ${-height} L ${width * 0.14} 0 H ${width / 2} Z`} fill={colors.glow} opacity=".72" />
+          <path d={`M ${-width / 2} 0 H ${width / 2}`} stroke={colors.deep} strokeWidth="2" />
+          <path d={`M ${-width * 0.13} 0 Q 0 ${-height * 0.39} ${width * 0.13} 0 Z`} fill={colors.deep} opacity=".8" />
+        </>
+      )}
+      {type === 'ferris_wheel' && (
+        <>
+          <path d={`M ${-width * 0.34} 0 L 0 ${-height * 0.57} L ${width * 0.34} 0 M 0 ${-height * 0.57} V 0`} fill="none" stroke={colors.deep} strokeWidth="3" />
+          <circle cx="0" cy={-height * 0.6} r={Math.min(width * 0.36, height * 0.29)} fill="none" stroke={color} strokeWidth="3" />
+          <circle cx="0" cy={-height * 0.6} r="3" fill={colors.sun} />
+          {Array.from({ length: 7 }, (_, index) => {
+            const angle = (index / 7) * Math.PI * 2 - Math.PI / 2
+            const radius = Math.min(width * 0.36, height * 0.29)
+            const gondolaX = Math.cos(angle) * radius
+            const gondolaY = -height * 0.6 + Math.sin(angle) * radius
+            return (
+              <g key={`gondola-${index}`}>
+                <path d={`M ${gondolaX} ${gondolaY} v 5`} stroke={colors.deep} strokeWidth="1.5" />
+                <rect x={gondolaX - 3.5} y={gondolaY + 4} width="7" height="5" rx="1" fill={[color, colors.glow, colors.sun][index % 3]} />
+              </g>
+            )
+          })}
+        </>
+      )}
       {(type === 'cottage' || type === 'building') && (
         <>
           {type === 'cottage' ? (
@@ -582,6 +713,16 @@ function ForegroundGrowth({ category, point, biome, color, colors, height }) {
       </g>
     )
   }
+  if (biome === 'fairground') {
+    return (
+      <g transform={scaleTransform} strokeLinecap="round" strokeLinejoin="round">
+        <path d={`M ${x} ${y + 4} Q ${x - 3} ${y - height * 0.38} ${x - 9} ${y - height * 0.68} M ${x} ${y + 4} Q ${x + 5} ${y - height * 0.36} ${x + 12} ${y - height * 0.58}`} fill="none" stroke={colors.near} strokeWidth="2.5" />
+        <circle cx={x - 9} cy={y - height * 0.72} r={height * 0.19} fill={color} stroke={colors.deep} strokeWidth="1.5" />
+        <circle cx={x + 12} cy={y - height * 0.62} r={height * 0.16} fill={colors.glow} stroke={colors.deep} strokeWidth="1.5" />
+        <path d={`M ${x - 15} ${y - height * 0.72} q 6 -7 12 0 q -6 7 -12 0 M ${x + 7} ${y - height * 0.62} q 5 -6 10 0 q -5 6 -10 0`} fill="none" stroke={colors.sun} strokeWidth="1.6" />
+      </g>
+    )
+  }
   if (['coast', 'wetlands'].includes(biome)) {
     return (
       <g transform={scaleTransform} fill="none" stroke={color} strokeLinecap="round">
@@ -596,7 +737,7 @@ function ForegroundGrowth({ category, point, biome, color, colors, height }) {
       <g transform={scaleTransform}>
         {[-9, 0, 9].map((offset, index) => (
           <g key={offset}>
-            <path d={`M ${x + offset} ${y + 4} V ${y - height * (index === 1 ? 0.85 : 0.62)}`} stroke="#bce27a" strokeWidth="2" />
+            <path d={`M ${x + offset} ${y + 4} V ${y - height * (index === 1 ? 0.85 : 0.62)}`} stroke={colors.glow} strokeWidth="2" />
             <circle cx={x + offset} cy={y - height * (index === 1 ? 0.85 : 0.62)} r="3" fill={index % 2 ? colors.sun : color} />
           </g>
         ))}
@@ -642,7 +783,8 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
   const backgroundLandmarks = backgroundCategories.map((category, index) => {
     const ratio = Math.sqrt(category.spend / spendMax)
     const personalScale = 0.9 + seedFor(index + 71) * 0.2
-    const type = landmarkType(category.category, biome, seedFor(index + 111))
+    const itemBiome = biomeForCategory(category.category)
+    const type = landmarkType(category.category, itemBiome, seedFor(index + 111))
     const structureScale = type === 'cottage' ? 0.9 : type === 'building' ? 0.92 : 1
     const height = (42 + ratio * 92) * personalScale * structureScale
     const baseX = backgroundCategories.length === 1 ? 450 : 112 + index * (676 / (backgroundCategories.length - 1))
@@ -653,8 +795,8 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
       width: (38 + ratio * 48) * personalScale * structureScale,
       height,
       type,
-      color: categoryColor(category.category, categories.indexOf(category), biome, profile.paletteOffset),
-      biome,
+      color: categoryColor(category.category, categories.indexOf(category), profile),
+      biome: itemBiome,
       colors,
     }
   })
@@ -680,7 +822,7 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
           </div>
           <div className="tapestry-legend" role="group" aria-label="Spending categories">
             {categories.map((category, index) => {
-              const color = categoryColor(category.category, index, biome, profile.paletteOffset)
+              const color = categoryColor(category.category, index, profile)
               return (
                 <button
                   type="button"
@@ -765,18 +907,18 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
               <path d={contourLine} fill="none" stroke={movement > 0.35 ? colors.sun : colors.glow} strokeWidth={3.5 + movement * 2.5} strokeDasharray="2 7" strokeLinecap="round" />
             </>
           )}
-          {biome === 'city' && <path d="M 0 388 H 900 M 140 370 V 440 M 390 370 V 440 M 650 370 V 440" stroke="#f6c577" strokeWidth="3" strokeDasharray="9 12" opacity=".68" />}
-          {biome === 'night_market' && <path d="M 0 389 H 900 M 0 414 H 900" stroke="#ee7ab6" strokeWidth="3" strokeDasharray="12 9" opacity=".72" />}
-          {biome === 'tundra' && <path d="M 92 376 L 145 394 L 183 382 L 245 410 M 553 375 L 592 391 L 640 379 L 688 404" fill="none" stroke="#e4f0ed" strokeWidth="3" opacity=".65" />}
-          {biome === 'desert' && <path d="M 0 380 C 160 354 266 382 397 398 S 656 412 900 374 M 0 410 C 161 384 267 412 398 426 S 657 438 900 404" fill="none" stroke="#f2c477" strokeWidth="3" opacity=".55" />}
-          {['coast', 'wetlands'].includes(biome) && <path d="M 0 388 C 126 371 253 405 380 388 S 636 371 900 394 M 0 414 C 126 397 253 431 380 414 S 636 397 900 420" fill="none" stroke="#bce0d4" strokeWidth="3" opacity=".55" />}
+          {biome === 'city' && <path d="M 0 388 H 900 M 140 370 V 440 M 390 370 V 440 M 650 370 V 440" stroke={colors.sun} strokeWidth="3" strokeDasharray="9 12" opacity=".68" />}
+          {biome === 'night_market' && <path d="M 0 389 H 900 M 0 414 H 900" stroke={colors.glow} strokeWidth="3" strokeDasharray="12 9" opacity=".72" />}
+          {biome === 'tundra' && <path d="M 92 376 L 145 394 L 183 382 L 245 410 M 553 375 L 592 391 L 640 379 L 688 404" fill="none" stroke={colors.glow} strokeWidth="3" opacity=".65" />}
+          {biome === 'desert' && <path d="M 0 380 C 160 354 266 382 397 398 S 656 412 900 374 M 0 410 C 161 384 267 412 398 426 S 657 438 900 404" fill="none" stroke={colors.sun} strokeWidth="3" opacity=".55" />}
+          {['coast', 'wetlands'].includes(biome) && <path d="M 0 388 C 126 371 253 405 380 388 S 636 371 900 394 M 0 414 C 126 397 253 431 380 414 S 636 397 900 420" fill="none" stroke={colors.glow} strokeWidth="3" opacity=".55" />}
           {terrainPoints.map((point, index) => (
             <ForegroundGrowth
               key={point.category.category}
               category={point.category.category}
               point={point}
-              biome={biome}
-              color={categoryColor(point.category.category, categories.indexOf(point.category), biome, profile.paletteOffset)}
+              biome={biomeForCategory(point.category.category)}
+              color={categoryColor(point.category.category, categories.indexOf(point.category), profile)}
               colors={colors}
               height={11 + Math.sqrt(point.category.spend / spendMax) * 12 + seedFor(index + 131) * 3}
             />
@@ -788,7 +930,7 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
               const terrainPoint = terrainPoints.find((point) => point.category.category === category.category)
               const x = landmark?.x ?? terrainPoint?.x ?? 450
               const y = landmark ? landmark.baseY - landmark.height / 2 : terrainPoint?.y ?? terrainBase
-              const color = categoryColor(category.category, index, biome, profile.paletteOffset)
+              const color = categoryColor(category.category, index, profile)
               const landmarkHitbox = landmark
                 ? { width: `${landmark.width / 900 * 100}%`, height: `${landmark.height / 440 * 100}%` }
                 : {}
@@ -819,7 +961,7 @@ function Tapestry({ rows, priceChanges, memberName, memberId }) {
       {activeRow && (
         <section className="category-detail" aria-live="polite">
           <div className="category-summary">
-            <span className="category-detail-swatch" style={{ '--category-color': categoryColor(activeRow.category, categories.indexOf(activeRow), biome, profile.paletteOffset), backgroundColor: categoryColor(activeRow.category, categories.indexOf(activeRow), biome, profile.paletteOffset) }} />
+            <span className="category-detail-swatch" style={{ '--category-color': categoryColor(activeRow.category, categories.indexOf(activeRow), profile), backgroundColor: categoryColor(activeRow.category, categories.indexOf(activeRow), profile) }} />
             <div>
               <p className="eyebrow">LANDSCAPE MARKER {categories.indexOf(activeRow) + 1}</p>
               <h3>{categoryLabel(activeRow.category)}</h3>
