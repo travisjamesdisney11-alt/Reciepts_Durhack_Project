@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
+import Brand from './Brand.jsx'
+import InviteCode from './InviteCode.jsx'
 
-export default function Setup({ currentHousehold, onCancel, onReady, onLoad, error }) {
+export default function Setup({
+  currentHousehold,
+  households = [],
+  onCancel,
+  onReady,
+  onSelectHousehold,
+  onLogout,
+  error,
+}) {
   const [name, setName] = useState('')
-  const [members, setMembers] = useState([{ id: 1, name: '' }])
-  const [nextMemberId, setNextMemberId] = useState(2)
   const [existing, setExisting] = useState('')
   const [err, setErr] = useState(error)
   const [busy, setBusy] = useState(false)
@@ -16,36 +24,16 @@ export default function Setup({ currentHousehold, onCancel, onReady, onLoad, err
     setBusy(true)
     setErr('')
     try {
-      const list = members.map((member) => member.name.trim()).filter(Boolean)
       if (!name.trim()) {
         setErr('Give your household a name to get started.')
         return
       }
-      if (list.length < 2) {
-        setErr('Add at least two housemates, separated by commas.')
-        return
-      }
-      onReady(await api.createHousehold(name.trim(), list))
+      onReady(await api.createHousehold(name.trim()))
     } catch (e) {
       setErr(e.message)
     } finally {
       setBusy(false)
     }
-  }
-
-  const updateMember = (id, value) => {
-    setMembers((current) => current.map((member) =>
-      member.id === id ? { ...member, name: value } : member
-    ))
-  }
-
-  const addMember = () => {
-    setMembers((current) => [...current, { id: nextMemberId, name: '' }])
-    setNextMemberId((current) => current + 1)
-  }
-
-  const removeMember = (id) => {
-    setMembers((current) => current.filter((member) => member.id !== id))
   }
 
   const openExisting = async (event) => {
@@ -54,7 +42,9 @@ export default function Setup({ currentHousehold, onCancel, onReady, onLoad, err
     setBusy(true)
     setErr('')
     try {
-      await onLoad(existing.trim())
+      onReady(await api.joinHousehold(existing.trim()))
+    } catch (requestError) {
+      setErr(requestError.message)
     } finally {
       setBusy(false)
     }
@@ -63,63 +53,60 @@ export default function Setup({ currentHousehold, onCancel, onReady, onLoad, err
   return (
     <div className="app setup">
       <header className="setup-header">
-        <a className="brand" href="#" onClick={(event) => event.preventDefault()}>
-          <span className="brand-mark" aria-hidden="true">r.</span>
-          <span>receipt<span className="brand-light">remix</span></span>
-        </a>
-        {currentHousehold && (
-          <button className="link" onClick={onCancel}>Back to {currentHousehold.name}</button>
-        )}
+        <Brand />
+        <div className="setup-header-actions">
+          {currentHousehold && (
+            <button className="link" onClick={onCancel}>Back to {currentHousehold.name}</button>
+          )}
+          <button className="link" onClick={onLogout}>Sign out</button>
+        </div>
       </header>
 
       <section className="setup-hero">
-        <p className="eyebrow">{currentHousehold ? 'YOUR HOUSEHOLD' : 'A LITTLE BETTER TOGETHER'}</p>
-        <h1>{currentHousehold ? 'Where to next?' : 'Start a tapestry together.'}</h1>
+        <p className="eyebrow">{currentHousehold ? 'YOUR HOUSEHOLD' : 'YOUR ACCOUNT IS READY'}</p>
+        <h1>{currentHousehold ? 'Where to next?' : 'Create or join a household.'}</h1>
         <p>{currentHousehold
-          ? `You’re currently with ${currentHousehold.name}. Create a new home or open a demo household.`
-          : 'Bring your housemates together to scan receipts, split fairly, and see your shared story take shape.'}</p>
+          ? `You’re currently with ${currentHousehold.name}. Create a new home or join another shared space.`
+          : 'Create a shared home, then invite housemates with a short code. They’ll be added as members when they join.'}</p>
       </section>
 
+      {currentHousehold?.invite_code && (
+        <InviteCode code={currentHousehold.invite_code} />
+      )}
+
       {err && <p className="error setup-error" role="alert">{err}</p>}
+
+      {households.length > 0 && (
+        <section className="setup-households" aria-labelledby="households-title">
+          <p className="eyebrow">YOUR SHARED SPACES</p>
+          <h2 id="households-title">Open a household</h2>
+          <div className="household-list">
+            {households.map((item) => (
+              <button
+                type="button"
+                className="household-choice"
+                key={item.id}
+                onClick={() => onSelectHousehold(item.id)}
+              >
+                <span>{item.name}</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="setup-options">
         <section className="setup-card create-household">
           <div className="setup-card-icon" aria-hidden="true">✳</div>
           <p className="eyebrow">MAKE A NEW SHARED SPACE</p>
           <h2>Create a household</h2>
-          <p className="setup-card-copy">Give your place a name and add the people who share the receipts.</p>
+          <p className="setup-card-copy">You’ll be the first member. After creation, share your 7-character invite code so housemates can join.</p>
           <form onSubmit={create}>
             <label>
               Household name
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Our Durham house" />
             </label>
-            <div className="member-fields" role="group" aria-label="Housemate names">
-              {members.map((member, index) => (
-                <div className="member-field-row" key={member.id}>
-                  <label htmlFor={`housemate-${member.id}`}>
-                    Housemate {index + 1}
-                    <input
-                      id={`housemate-${member.id}`}
-                      value={member.name}
-                      onChange={(e) => updateMember(member.id, e.target.value)}
-                      placeholder={index === 0 ? 'e.g. Alex' : `Housemate ${index + 1}`}
-                    />
-                  </label>
-                  {index > 0 && (
-                    <button
-                      className="remove-member"
-                      type="button"
-                      aria-label={`Remove housemate ${index + 1}`}
-                      onClick={() => removeMember(member.id)}
-                    >−</button>
-                  )}
-                </div>
-              ))}
-              <button className="add-member" type="button" onClick={addMember}>
-                <span aria-hidden="true">+</span> Add housemate
-              </button>
-              <span className="field-hint">Add at least two housemates to create a shared household.</span>
-            </div>
             <button className="primary setup-submit" type="submit" disabled={busy}>
               {busy ? 'Creating…' : 'Create household'}
             </button>
@@ -128,19 +115,26 @@ export default function Setup({ currentHousehold, onCancel, onReady, onLoad, err
 
         <section className="setup-card join-household">
           <div className="setup-card-icon secondary-icon" aria-hidden="true">↗</div>
-          <p className="eyebrow">ALREADY HAVE A HOUSEHOLD?</p>
-          <h2>Open a demo household</h2>
-          <p className="setup-card-copy">For this demo, enter the household ID shared by your project team.</p>
+          <p className="eyebrow">ALREADY HAVE A SHARED SPACE?</p>
+          <h2>Join a household</h2>
+          <p className="setup-card-copy">Enter the 7-character code. You’ll be added to the household automatically.</p>
           <form onSubmit={openExisting}>
             <label>
-              Demo household ID
-              <input value={existing} onChange={(e) => setExisting(e.target.value)} placeholder="e.g. 1" />
+              Household invite code
+              <input
+                value={existing}
+                onChange={(e) => setExisting(e.target.value)}
+                placeholder="e.g. AB3K7XM"
+                maxLength={7}
+                autoCapitalize="characters"
+                autoComplete="off"
+              />
             </label>
-            <button className="setup-submit" type="submit" disabled={busy || !existing.trim()}>
-              {busy ? 'Opening…' : 'Open household'}
+            <button className="setup-submit" type="submit" disabled={busy || existing.trim().length !== 7}>
+              {busy ? 'Joining…' : 'Join household'}
             </button>
           </form>
-          <p className="demo-note">Household IDs are for the demo; invite links aren’t available yet.</p>
+          <p className="demo-note">Ask a housemate to copy their invite code from the app and send it to you.</p>
         </section>
       </div>
 

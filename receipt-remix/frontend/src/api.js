@@ -1,6 +1,19 @@
 // Thin wrapper around the FastAPI backend. Every call returns parsed JSON or throws.
+let inMemoryToken = null
+
+function savedToken() {
+  try {
+    return localStorage.getItem('receiptRemixToken') || inMemoryToken
+  } catch {
+    return inMemoryToken
+  }
+}
+
 async function req(path, opts = {}) {
-  const res = await fetch(`/api${path}`, opts)
+  const headers = new Headers(opts.headers || {})
+  const token = savedToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const res = await fetch(`/api${path}`, { ...opts, headers })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`)
   return body
@@ -12,7 +25,13 @@ const json = (method, data) => ({
 })
 
 export const api = {
-  createHousehold: (name, members) => req('/households', json('POST', { name, members })),
+  setToken: (token) => { inMemoryToken = token },
+  register: (data) => req('/auth/register', json('POST', data)),
+  login: (data) => req('/auth/login', json('POST', data)),
+  me: () => req('/auth/me'),
+  logout: () => req('/auth/logout', { method: 'POST' }),
+  createHousehold: (name) => req('/households', json('POST', { name })),
+  joinHousehold: (inviteCode) => req('/households/join', json('POST', { invite_code: inviteCode })),
   getHousehold: (id) => req(`/households/${id}`),
   uploadReceipt: (householdId, payerId, file) => {
     const fd = new FormData()

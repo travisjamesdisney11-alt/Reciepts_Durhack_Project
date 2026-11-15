@@ -10,7 +10,6 @@ cd backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...      # leave unset to run in MOCK mode
-python seed_fake.py                      # optional: synthetic demo flat (household 1)
 uvicorn app.main:app --reload --port 8000
 ```
 API docs at http://localhost:8000/docs
@@ -22,6 +21,27 @@ npm install
 npm run dev
 ```
 Open http://localhost:5173. On your phone (same Wi-Fi) open `http://<laptop-ip>:5173` — the upload button opens the camera.
+
+Create an account or log in from the landing page. Accounts are independent of households: after signing in, create a household or join one with a housemate's invite code. Passwords must be at least 8 characters and include an uppercase letter, a lowercase letter, and a special symbol. Sessions expire after 30 days. Password reset and email verification are not available in this MVP.
+
+Creating a household adds the signed-in user as its first member and generates a unique 7-character invite code using easy-to-read uppercase letters and numbers. Share it with housemates; they create an account or log in, enter the code, and are added to the household automatically. Household members can copy the code from the app.
+
+### Local test accounts (optional)
+
+Use an explicitly named test database so the demo accounts do not get added to your normal app database:
+```bash
+cd backend
+python seed_test_accounts.py --db-path /tmp/receipt-remix-test.db
+DB_PATH=/tmp/receipt-remix-test.db uvicorn app.main:app --reload --port 8000
+```
+
+| Test account | Email | Password |
+|---|---|---|
+| Alex Test | `alex@receipt-remix.test` | `ReceiptRemix!2026` |
+| Sam Test | `sam@receipt-remix.test` | `ReceiptRemix!2026` |
+| Casey Test | `casey@receipt-remix.test` | `ReceiptRemix!2026` |
+
+Alex and Sam share a synthetic household; Casey has none. These are public test credentials for the isolated local test database only—never use them in production. Rerunning the seed script resets these test accounts to the listed password.
 
 **Test extraction on real photos without the app**
 ```bash
@@ -42,11 +62,14 @@ python test_extract.py photos/*.jpg        # add --json to see full output
 backend/app/llm.py    extraction + split prompts, JSON schemas (forced tool use), mock data
 backend/app/main.py   FastAPI routes, unit-price normalisation, balances, insights, shrinkflation
 backend/app/db.py     SQLite schema
-frontend/src/         Setup → Scan (ReceiptView) → Balances → Insights
+backend/seed_test_accounts.py  opt-in local test accounts and household
+frontend/src/         Auth → household setup → Scan (ReceiptView) → Balances → Insights
 ```
 
 API (all under `/api`):
-- `POST /households` `{name, members[]}` · `GET /households/{id}`
+- `POST /auth/register` `{name, email, password}` · `POST /auth/login` `{email, password}`
+- `GET /auth/me` · `POST /auth/logout`
+- `POST /households` `{name}` · `POST /households/join` `{invite_code}` · `GET /households/{id}`
 - `POST /receipts` (multipart: household_id, payer_id, file) → extracted receipt
 - `PATCH /items/{id}` — human correction (sets confidence to 1)
 - `POST /receipts/{id}/propose-split` `{instruction}` → LLM proposal (**not saved**)

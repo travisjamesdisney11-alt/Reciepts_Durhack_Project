@@ -1,0 +1,47 @@
+{
+  "store": "Ocean View Bar & Grille",
+  "purchased_at": "2023-10-26",
+  "currency": "GBP",
+  "total": 329.15,
+  "items": [
+    {
+      "raw_text": "VK MIXED (5x20) \u00a3250.00",
+      "name": "VK Mixed (5x20)",
+      "canonical_name": "vk mixed 5x20",
+      "brand": "VK",
+      "category": "alcohol",
+      "quantity": 1,
+      "price": 250.0,
+      "discount": 0.0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "2 PLANTAIN CHIPS BOX \u00a37.90",
+      "name": "Plantain Chips Box",
+      "canonical_name": "plantain chips box",
+      "brand": "Ocean View",
+      "category": "snacks_treats",
+      "quantity": 2,
+      "price": 7.9,
+      "discount": 0.0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "RUSTLERS BURGER \u00a371.25",
+      "name": "Rustlers Burger",
+      "canonical_name": "rustlers burger",
+      "brand": "Rustlers",
+      "category": "ready_meals",
+      "quantity": 1,
+      "price": 71.25,
+      "discount": 0.0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    }
+  ]
+}

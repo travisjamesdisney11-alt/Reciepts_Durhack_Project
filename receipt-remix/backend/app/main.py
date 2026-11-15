@@ -1,12 +1,15 @@
 """Receipt Remix API. Run: uvicorn app.main:app --reload --port 8000"""
 import json
+import re
+import sqlite3
 from collections import defaultdict
 
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from . import db, llm
+from . import auth, db, llm
 
 app = FastAPI(title="Receipt Remix")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -14,6 +17,7 @@ api = APIRouter(prefix="/api")
 db.init()
 
 LOW_CONFIDENCE = 0.6
+bearer = HTTPBearer(auto_error=False)
 
 
 # ---------- helpers ----------
@@ -53,39 +57,228 @@ def load_receipt(conn, receipt_id: int) -> dict:
     return receipt
 
 
+# ---------- authentication ----------
+
+class RegisterIn(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> dict:
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(401, "Please log in to continue", headers={"WWW-Authenticate": "Bearer"})
+    token_hash = auth.hash_session_token(credentials.credentials)
+    with db.connect() as conn:
+        user = conn.execute(
+            """SELECT u.id, u.name, u.email FROM sessions s
+               JOIN users u ON u.id = s.user_id
+               WHERE s.token_hash = ? AND s.expires_at > CAST(strftime('%s', 'now') AS INTEGER)""",
+            (token_hash,),
+        ).fetchone()
+    if not user:
+        raise HTTPException(401, "Your session has expired. Please log in again", headers={"WWW-Authenticate": "Bearer"})
+    return dict(user)
+
+
+def require_household_access(conn, household_id: int, user_id: int) -> None:
+    access = conn.execute(
+        "SELECT 1 FROM user_households WHERE household_id = ? AND user_id = ?",
+        (household_id, user_id),
+    ).fetchone()
+    if not access:
+        raise HTTPException(404, "Household not found")
+
+
+def require_receipt_access(conn, receipt_id: int, user_id: int) -> int:
+    receipt = conn.execute("SELECT household_id FROM receipts WHERE id = ?", (receipt_id,)).fetchone()
+    if not receipt:
+        raise HTTPException(404, "Receipt not found")
+    household_id = receipt["household_id"]
+    require_household_access(conn, household_id, user_id)
+    return household_id
+
+
+@api.post("/auth/register")
+def register(body: RegisterIn):
+    name = body.name.strip()
+    email = body.email.strip().lower()
+    if not name or len(name) > 80:
+        raise HTTPException(400, "Enter a name between 1 and 80 characters")
+    if len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        raise HTTPException(400, "Enter a valid email address")
+    password_error = auth.validate_password(body.password)
+    if password_error:
+        raise HTTPException(400, password_error)
+    salt, password_hash = auth.hash_password(body.password)
+    token, token_hash, expires_at = auth.create_session_token()
+    try:
+        with db.connect() as conn:
+            user_id = conn.execute(
+                "INSERT INTO users (name, email, password_salt, password_hash) VALUES (?, ?, ?, ?)",
+                (name, email, salt, password_hash),
+            ).lastrowid
+            conn.execute(
+                "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                (user_id, token_hash, expires_at),
+            )
+    except sqlite3.IntegrityError as error:
+        if "users.email" in str(error):
+            raise HTTPException(409, "An account with this email already exists") from error
+        raise
+    return {"token": token, "user": {"id": user_id, "name": name, "email": email}}
+
+
+@api.post("/auth/login")
+def login(body: LoginIn):
+    email = body.email.strip().lower()
+    if not email or len(body.password) > 128:
+        raise HTTPException(401, "Email or password is incorrect")
+    with db.connect() as conn:
+        user = conn.execute(
+            "SELECT id, name, email, password_salt, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+    valid = auth.verify_password(body.password, user["password_salt"], user["password_hash"]) if user else auth.verify_password(
+        body.password, "00", "00"
+    )
+    if not user or not valid:
+        raise HTTPException(401, "Email or password is incorrect")
+    token, token_hash, expires_at = auth.create_session_token()
+    with db.connect() as conn:
+        conn.execute(
+            "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+            (user["id"], token_hash, expires_at),
+        )
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "email": user["email"]}}
+
+
+@api.get("/auth/me")
+def get_me(user: dict = Depends(get_current_user)):
+    with db.connect() as conn:
+        households = db.rows(conn.execute(
+            """SELECT h.id, h.name FROM user_households uh
+               JOIN households h ON h.id = uh.household_id
+               WHERE uh.user_id = ? ORDER BY h.name""",
+            (user["id"],),
+        ))
+    return {**user, "households": households}
+
+
+@api.post("/auth/logout")
+def logout(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    user: dict = Depends(get_current_user),
+):
+    if credentials:
+        with db.connect() as conn:
+            conn.execute(
+                "DELETE FROM sessions WHERE token_hash = ? AND user_id = ?",
+                (auth.hash_session_token(credentials.credentials), user["id"]),
+            )
+    return {"ok": True}
+
+
 # ---------- households ----------
 
 class HouseholdIn(BaseModel):
     name: str
-    members: list[str]
 
 
 @api.post("/households")
-def create_household(body: HouseholdIn):
+def create_household(body: HouseholdIn, user: dict = Depends(get_current_user)):
+    name = body.name.strip()
+    if not name or len(name) > 100:
+        raise HTTPException(400, "Household name must be between 1 and 100 characters")
     with db.connect() as conn:
-        hid = conn.execute("INSERT INTO households (name) VALUES (?)", (body.name,)).lastrowid
-        for m in body.members:
-            conn.execute("INSERT INTO members (household_id, name) VALUES (?, ?)", (hid, m.strip()))
-    return get_household(hid)
+        hid = conn.execute("INSERT INTO households (name) VALUES (?)", (name,)).lastrowid
+        db.create_household_invite(conn, hid)
+        conn.execute(
+            "INSERT INTO user_households (user_id, household_id) VALUES (?, ?)",
+            (user["id"], hid),
+        )
+        conn.execute(
+            "INSERT INTO members (household_id, name) VALUES (?, ?)",
+            (hid, user["name"]),
+        )
+    return get_household(hid, user)
+
+
+class JoinHouseholdIn(BaseModel):
+    invite_code: str
+
+
+@api.post("/households/join")
+def join_household(body: JoinHouseholdIn, user: dict = Depends(get_current_user)):
+    invite_code = body.invite_code.strip().upper()
+    if not re.fullmatch(r"[A-HJ-NP-Z2-9]{7}", invite_code):
+        raise HTTPException(400, "Invite code must be 7 letters or numbers")
+    with db.connect() as conn:
+        invite = conn.execute(
+            "SELECT household_id FROM household_invites WHERE invite_code = ?",
+            (invite_code,),
+        ).fetchone()
+        if not invite:
+            raise HTTPException(404, "Household invite code not found")
+        household_id = invite["household_id"]
+        conn.execute(
+            "INSERT OR IGNORE INTO user_households (user_id, household_id) VALUES (?, ?)",
+            (user["id"], household_id),
+        )
+        member = conn.execute(
+            "SELECT 1 FROM members WHERE household_id = ? AND name = ? COLLATE NOCASE",
+            (household_id, user["name"]),
+        ).fetchone()
+        if not member:
+            conn.execute(
+                "INSERT INTO members (household_id, name) VALUES (?, ?)",
+                (household_id, user["name"]),
+            )
+    return get_household(household_id, user)
 
 
 @api.get("/households/{hid}")
-def get_household(hid: int):
+def get_household(hid: int, user: dict = Depends(get_current_user)):
     with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
         h = conn.execute("SELECT * FROM households WHERE id = ?", (hid,)).fetchone()
         if not h:
             raise HTTPException(404, "Household not found")
         members = db.rows(conn.execute("SELECT id, name FROM members WHERE household_id = ?", (hid,)))
+        invite = conn.execute(
+            "SELECT invite_code FROM household_invites WHERE household_id = ?",
+            (hid,),
+        ).fetchone()
         receipts = db.rows(conn.execute(
             "SELECT id, store, purchased_at, total, status, payer_id FROM receipts WHERE household_id = ? ORDER BY purchased_at DESC, id DESC",
             (hid,)))
-    return {**dict(h), "members": members, "receipts": receipts}
+    return {**dict(h), "members": members, "receipts": receipts, "invite_code": invite["invite_code"] if invite else None}
 
 
 # ---------- receipts ----------
 
 @api.post("/receipts")
-async def upload_receipt(household_id: int = Form(...), payer_id: int = Form(...), file: UploadFile = File(...)):
+async def upload_receipt(
+    household_id: int = Form(...),
+    payer_id: int = Form(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    with db.connect() as conn:
+        require_household_access(conn, household_id, user["id"])
+        payer = conn.execute(
+            "SELECT 1 FROM members WHERE id = ? AND household_id = ?",
+            (payer_id, household_id),
+        ).fetchone()
+        if not payer:
+            raise HTTPException(400, "Payer does not belong to this household")
     data = await file.read()
     try:
         parsed = llm.extract_receipt(data)
@@ -112,8 +305,9 @@ async def upload_receipt(household_id: int = Form(...), payer_id: int = Form(...
 
 
 @api.get("/receipts/{rid}")
-def get_receipt(rid: int):
+def get_receipt(rid: int, user: dict = Depends(get_current_user)):
     with db.connect() as conn:
+        require_receipt_access(conn, rid, user["id"])
         return load_receipt(conn, rid)
 
 
@@ -124,16 +318,23 @@ class ItemEdit(BaseModel):
 
 
 @api.patch("/items/{item_id}")
-def edit_item(item_id: int, body: ItemEdit):
+def edit_item(item_id: int, body: ItemEdit, user: dict = Depends(get_current_user)):
     """Human correction of a misread line."""
     fields = {k: v for k, v in body.model_dump().items() if v is not None}
     if not fields:
         raise HTTPException(400, "Nothing to update")
     with db.connect() as conn:
+        receipt = conn.execute(
+            """SELECT li.receipt_id, r.household_id FROM line_items li
+               JOIN receipts r ON r.id = li.receipt_id WHERE li.id = ?""",
+            (item_id,),
+        ).fetchone()
+        if not receipt:
+            raise HTTPException(404, "Item not found")
+        require_household_access(conn, receipt["household_id"], user["id"])
         sets = ", ".join(f"{k} = ?" for k in fields)
         conn.execute(f"UPDATE line_items SET {sets}, confidence = 1.0 WHERE id = ?", (*fields.values(), item_id))
-        rid = conn.execute("SELECT receipt_id FROM line_items WHERE id = ?", (item_id,)).fetchone()["receipt_id"]
-        return load_receipt(conn, rid)
+        return load_receipt(conn, receipt["receipt_id"])
 
 
 class SplitRequest(BaseModel):
@@ -141,10 +342,11 @@ class SplitRequest(BaseModel):
 
 
 @api.post("/receipts/{rid}/propose-split")
-def propose_split(rid: int, body: SplitRequest):
+def propose_split(rid: int, body: SplitRequest, user: dict = Depends(get_current_user)):
     """LLM proposes; nothing is saved until the user confirms."""
     with db.connect() as conn:
         receipt = load_receipt(conn, rid)
+        require_household_access(conn, receipt["household_id"], user["id"])
         members = db.rows(conn.execute("SELECT id, name FROM members WHERE household_id = ?", (receipt["household_id"],)))
     by_name = {m["name"].lower(): m["id"] for m in members}
     payer = next((m["name"] for m in members if m["id"] == receipt["payer_id"]), None)
@@ -166,14 +368,23 @@ class ConfirmSplit(BaseModel):
 
 
 @api.put("/receipts/{rid}/split")
-def confirm_split(rid: int, body: ConfirmSplit):
+def confirm_split(rid: int, body: ConfirmSplit, user: dict = Depends(get_current_user)):
     with db.connect() as conn:
+        household_id = require_receipt_access(conn, rid, user["id"])
         item_ids = {r["id"] for r in conn.execute("SELECT id FROM line_items WHERE receipt_id = ?", (rid,))}
+        member_ids = {
+            row["id"] for row in conn.execute(
+                "SELECT id FROM members WHERE household_id = ?",
+                (household_id,),
+            )
+        }
         conn.execute(f"DELETE FROM assignments WHERE line_item_id IN ({','.join('?' * len(item_ids)) or 'NULL'})", tuple(item_ids))
         for a in body.assignments:
             if a.item_id not in item_ids:
                 raise HTTPException(400, f"Item {a.item_id} is not on this receipt")
             for mid in a.member_ids:
+                if mid not in member_ids:
+                    raise HTTPException(400, f"Member {mid} does not belong to this household")
                 conn.execute("INSERT INTO assignments (line_item_id, member_id) VALUES (?, ?)", (a.item_id, mid))
         conn.execute("UPDATE receipts SET status = 'confirmed' WHERE id = ?", (rid,))
         return load_receipt(conn, rid)
@@ -182,8 +393,9 @@ def confirm_split(rid: int, body: ConfirmSplit):
 # ---------- balances ----------
 
 @api.get("/households/{hid}/balances")
-def balances(hid: int):
+def balances(hid: int, user: dict = Depends(get_current_user)):
     with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
         members = {m["id"]: m["name"] for m in conn.execute("SELECT id, name FROM members WHERE household_id = ?", (hid,))}
         net = {mid: 0.0 for mid in members}  # positive = is owed money
         receipts = db.rows(conn.execute("SELECT id, payer_id FROM receipts WHERE household_id = ? AND status = 'confirmed'", (hid,)))
@@ -217,9 +429,10 @@ def balances(hid: int):
 # ---------- insights ----------
 
 @api.get("/households/{hid}/insights")
-def insights(hid: int):
+def insights(hid: int, user: dict = Depends(get_current_user)):
     """Return household totals and per-member shares from confirmed item splits."""
     with db.connect() as conn:
+        require_household_access(conn, hid, user["id"])
         base = "FROM line_items li JOIN receipts r ON r.id = li.receipt_id WHERE r.household_id = ?"
         by_category = db.rows(conn.execute(f"SELECT li.category, ROUND(SUM(li.price), 2) AS spend {base} GROUP BY li.category ORDER BY spend DESC", (hid,)))
         by_week = db.rows(conn.execute(

@@ -1,0 +1,60 @@
+{
+  "store": "Berghotel Grosse Scheidegg",
+  "purchased_at": "2007-07-30",
+  "currency": "CHF",
+  "total": 54.5,
+  "items": [
+    {
+      "raw_text": "2xLatte Macchiato \u00e0 4.50 CHF 9.00",
+      "name": "Latte Macchiato",
+      "canonical_name": "latte macchiato",
+      "brand": "Berghotel Grosse Scheidegg",
+      "category": "drinks",
+      "quantity": 2,
+      "price": 9.0,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "1xGloki \u00e0 5.00 CHF 5.00",
+      "name": "Gloki",
+      "canonical_name": "gloki",
+      "brand": "Berghotel Grosse Scheidegg",
+      "category": "drinks",
+      "quantity": 1,
+      "price": 5.0,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.9
+    },
+    {
+      "raw_text": "1xSchweinschnitzel \u00e0 22.00 CHF 22.00",
+      "name": "Schweinschnitzel",
+      "canonical_name": "schweinschnitzel",
+      "brand": "Berghotel Grosse Scheidegg",
+      "category": "ready_meals",
+      "quantity": 1,
+      "price": 22.0,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    },
+    {
+      "raw_text": "1xCh\u00e4ssp\u00e4tzli \u00e0 18.50 CHF 18.50",
+      "name": "Ch\u00e4ssp\u00e4tzli",
+      "canonical_name": "ch\u00e4ssp\u00e4tzli",
+      "brand": "Berghotel Grosse Scheidegg",
+      "category": "ready_meals",
+      "quantity": 1,
+      "price": 18.5,
+      "discount": 0,
+      "size_value": 0,
+      "size_unit": "unknown",
+      "confidence": 0.95
+    }
+  ]
+}

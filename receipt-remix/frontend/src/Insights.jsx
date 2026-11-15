@@ -2,9 +2,37 @@ import { useEffect, useState } from 'react'
 import { api } from './api.js'
 
 const ESSENTIALS = new Set(['produce', 'dairy_eggs', 'meat_fish', 'bakery', 'frozen', 'cupboard', 'household_cleaning', 'laundry', 'toiletries_personal_care', 'baby_care', 'feminine_care', 'health_medicine', 'pet'])
-const ACCENTS = new Set(['drinks', 'alcohol', 'snacks_treats', 'ready_meals'])
-const EARTH_PALETTE = ['#bd7861', '#d2a15f', '#9c7488', '#967e72']
-const ACCENT_PALETTE = ['#e47761', '#eab753', '#718fa0', '#ce7180']
+const CATEGORY_COLOR_SLOTS = {
+  produce: 0,
+  dairy_eggs: 1,
+  meat_fish: 2,
+  bakery: 3,
+  frozen: 4,
+  cupboard: 5,
+  household_cleaning: 0,
+  laundry: 1,
+  toiletries_personal_care: 2,
+  baby_care: 3,
+  feminine_care: 4,
+  health_medicine: 5,
+  pet: 0,
+  drinks: 3,
+  alcohol: 4,
+  snacks_treats: 1,
+  ready_meals: 2,
+}
+const BIOME_CATEGORY_PALETTES = {
+  city: ['#ffb84d', '#ff668b', '#a67bff', '#44d6d1', '#f4df61', '#ff8861'],
+  night_market: ['#ff5cae', '#53e1c0', '#ffd166', '#9e83ff', '#ff805b', '#89e9f4'],
+  jungle: ['#b2df52', '#ff9954', '#4ed1a9', '#f6d54d', '#9074f2', '#ff6f8e'],
+  forest: ['#87cf68', '#e9b54e', '#51bc91', '#f1d267', '#d17b68', '#b69adf'],
+  tundra: ['#73d8e6', '#ffd06b', '#f184a2', '#6baff0', '#a893f2', '#fff0bd'],
+  coast: ['#36d3c8', '#ffbc62', '#ff7186', '#4d9fe8', '#b17de3', '#f0d95b'],
+  wetlands: ['#69d59c', '#48d5d4', '#ffd06d', '#d77da9', '#a0d96e', '#7da9ed'],
+  desert: ['#ff9148', '#f5c34a', '#ec6f61', '#9ec04e', '#c179d0', '#ffdc85'],
+  alpine: ['#53c7d2', '#e8bf66', '#ff8177', '#76a4ed', '#ae8edf', '#d6e987'],
+  meadow: ['#ef86b3', '#ffce67', '#8bd276', '#72c7df', '#a58bdd', '#f3a074'],
+}
 const LANDSCAPE_PROFILES = {
   city: {
     name: 'Corner-Shop City',
@@ -12,8 +40,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['The snack district has the corner office.', 'A skyline built one little treat at a time.', 'Ready meals are running this town.'],
     captions: ['Your treat budget has a city pass and no plans to go home early.', 'Convenience is in its downtown era; the kettle has filed for overtime.', 'Small bites, big-city energy. The snack council has called a meeting.'],
-    colors: { sky: '#615079', mid: '#b36372', horizon: '#ef9867', far: '#62516d', near: '#814b61', ground: '#65445a', deep: '#302c46', sun: '#ffd17e', glow: '#ff9c83' },
-    foregroundPath: 'M 0 343 H 900 V 440 H 0 Z',
+    colors: { sky: '#392257', mid: '#a43c74', horizon: '#ff9554', far: '#744ca4', near: '#b54770', ground: '#5d2f60', deep: '#2a1c42', sun: '#ffd36a', glow: '#ff7b71' },
   },
   night_market: {
     name: 'Neon Night Market',
@@ -21,8 +48,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'moon',
     headings: ['The night market is open; your budget knows the vendors.', 'A little after-hours sparkle, coming right up.', 'The moon has competition from the drinks shelf.'],
     captions: ['Alcohol spending brought its own neon sign and forgot to turn it off.', 'The late-night refreshment district is glowing a little brighter this week.', 'A moonlit market, a lively basket, and absolutely no last call for puns.'],
-    colors: { sky: '#171f4a', mid: '#393568', horizon: '#7d4771', far: '#302c5e', near: '#44305f', ground: '#473352', deep: '#171d3a', sun: '#f6edcc', glow: '#ef8cb0' },
-    foregroundPath: 'M 0 343 H 900 V 440 H 0 Z',
+    colors: { sky: '#101b46', mid: '#302b79', horizon: '#ae397e', far: '#442b8b', near: '#51276d', ground: '#30215f', deep: '#171739', sun: '#fff0a8', glow: '#ff5ead' },
   },
   jungle: {
     name: 'Canopy Jungle',
@@ -30,8 +56,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['The produce aisle went full canopy.', 'Leaf it to the greens to steal the show.', 'Your salad era has a whole ecosystem.'],
     captions: ['Produce is doing the heavy lifting. Somewhere, a leaf just got promoted.', 'Fresh finds are growing wild; the fruit bowl is feeling famous.', 'The greens have formed a tiny committee and elected a very ripe leader.'],
-    colors: { sky: '#286b61', mid: '#63a078', horizon: '#c4b96e', far: '#246653', near: '#315b48', ground: '#36543f', deep: '#203c37', sun: '#fff0a7', glow: '#d8d978' },
-    foregroundPath: 'M 0 347 C 129 326 207 359 323 341 S 552 324 675 350 S 830 330 900 344 V 440 H 0 Z',
+    colors: { sky: '#155c58', mid: '#329b72', horizon: '#d2cf53', far: '#147854', near: '#286345', ground: '#244e3e', deep: '#14362e', sun: '#fff067', glow: '#b1ec6c' },
   },
   forest: {
     name: 'Pine-Needle Forest',
@@ -39,8 +64,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['A quiet little essentials empire.', 'The budget packed a flask and a sensible list.', 'Sturdy roots. Suspiciously good planning.'],
     captions: ['Calm categories, sturdy roots. A spreadsheet would call this “well behaved.”', 'Household essentials are holding the line without making a fuss.', 'Your spending brought reusable bags and remembered where they are.'],
-    colors: { sky: '#496f61', mid: '#8d9c70', horizon: '#d5a56d', far: '#476c52', near: '#385845', ground: '#354d3d', deep: '#233a32', sun: '#ffe5a0', glow: '#e8b56e' },
-    foregroundPath: 'M 0 346 C 154 329 254 352 369 340 S 590 357 731 338 S 839 343 900 332 V 440 H 0 Z',
+    colors: { sky: '#244d3b', mid: '#5f8c46', horizon: '#d8a842', far: '#38633e', near: '#315544', ground: '#2c503b', deep: '#163628', sun: '#ffe684', glow: '#f7bd4f' },
   },
   tundra: {
     name: 'Price-Check Tundra',
@@ -50,8 +74,7 @@ const LANDSCAPE_PROFILES = {
     captions: ['Prices are inching upward; your receipt has requested an extra layer.', 'The checkout line is colder than the weather app today.', 'A little price pressure, a lot of dramatic glacier energy.'],
     frozenHeadings: ['The freezer aisle has claimed the horizon.', 'Your frozen-food era looks positively glacial.', 'Cold storage, cooler landscape.'],
     frozenCaptions: ['Frozen favourites are the headliners; the forecast is one-degree-chiller.', 'The freezer aisle has expanded into a full expedition.', 'Your peas are thriving. The penguins have started a fan club.'],
-    colors: { sky: '#263d72', mid: '#546a9a', horizon: '#8797b5', far: '#b7c8d7', near: '#8fa8bc', ground: '#9fb6c5', deep: '#617f99', sun: '#f6edcc', glow: '#d3d9ec' },
-    foregroundPath: 'M 0 351 C 142 347 245 350 367 344 S 620 351 746 345 S 839 348 900 343 V 440 H 0 Z',
+    colors: { sky: '#183d78', mid: '#3b6fb3', horizon: '#65c9d0', far: '#91dce3', near: '#72bad6', ground: '#79bdce', deep: '#4d8da9', sun: '#ffe8ad', glow: '#9ce4f0' },
   },
   coast: {
     name: 'Tidepool Coast',
@@ -59,8 +82,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'moon',
     headings: ['Your spending refuses to be typecast.', 'A little of this, a little of that, lovely tide.', 'The budget is taking the scenic route.'],
     captions: ['A little bit of everything, with a gentle chance of biscuits. Bring snacks, just in case.', 'No single category stole the spotlight; the tide brought a bit of everything.', 'Your spending has range. Even the seagulls are curious.'],
-    colors: { sky: '#316d88', mid: '#6698a0', horizon: '#d7b27c', far: '#46899a', near: '#347583', ground: '#c9ae82', deep: '#365e69', sun: '#fff0bd', glow: '#9dd2d3' },
-    foregroundPath: 'M 0 350 C 120 341 236 361 362 348 S 585 337 723 354 S 846 338 900 348 V 440 H 0 Z',
+    colors: { sky: '#0c638c', mid: '#35abb0', horizon: '#ffd072', far: '#258cac', near: '#167e9e', ground: '#d29a55', deep: '#315b77', sun: '#ffe09a', glow: '#6de0d0' },
   },
   wetlands: {
     name: 'Moonlit Wetlands',
@@ -68,8 +90,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'moon',
     headings: ['The refreshment district is glowing.', 'Your drinks have formed a water feature.', 'Tonight’s forecast: a 100% chance of one more sip.'],
     captions: ['The drinks shelf is doing laps around a very scenic marsh.', 'Hydration has become a whole landscape. Even the frogs approve.', 'The beverage budget is making waves, quite literally.'],
-    colors: { sky: '#253e59', mid: '#315d68', horizon: '#668875', far: '#426b61', near: '#315b50', ground: '#345648', deep: '#1d3a3b', sun: '#f6e8bd', glow: '#87b5a2' },
-    foregroundPath: 'M 0 344 C 141 337 264 352 371 345 S 585 351 711 342 S 837 347 900 338 V 440 H 0 Z',
+    colors: { sky: '#173951', mid: '#1c7371', horizon: '#8bc769', far: '#247f6a', near: '#176354', ground: '#28684d', deep: '#17453e', sun: '#ffe5a0', glow: '#74e6bd' },
   },
   desert: {
     name: 'Pantry Dunes',
@@ -77,8 +98,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['The pantry has entered its dune era.', 'Shelf-stable, sun-soaked, and thriving.', 'Your cupboards are giving oasis energy.'],
     captions: ['Cupboard staples are piling up like dunes. Somewhere, a chickpea feels seen.', 'A well-stocked pantry: the mirage is just another tin of beans.', 'The cupboard is prepared for anything except one more lentil pun.'],
-    colors: { sky: '#b85f50', mid: '#e08c5b', horizon: '#f3bd72', far: '#d48b5e', near: '#b56d50', ground: '#c88753', deep: '#79503f', sun: '#fff0b0', glow: '#f5a85e' },
-    foregroundPath: 'M 0 348 C 155 323 226 363 350 343 S 559 320 697 351 S 837 327 900 345 V 440 H 0 Z',
+    colors: { sky: '#b63846', mid: '#ed6844', horizon: '#ffd166', far: '#d95d46', near: '#b9473d', ground: '#d77a38', deep: '#76402d', sun: '#fff0a2', glow: '#ff9950' },
   },
   alpine: {
     name: 'Alpine Pantry',
@@ -86,8 +106,7 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['A hearty shop has climbed new heights.', 'Dairy and dinner: the summit team.', 'This basket is built for the long hike.'],
     captions: ['Hearty staples are reaching peak performance. Pack snacks for the ascent.', 'The mountain was made of milk, cheese, and excellent meal plans.', 'Your receipt has summited the dairy range without breaking a sweat.'],
-    colors: { sky: '#5686a3', mid: '#8eb4bb', horizon: '#e8c18a', far: '#718fa2', near: '#577486', ground: '#738a87', deep: '#405967', sun: '#fff0c1', glow: '#d4e4bc' },
-    foregroundPath: 'M 0 352 C 125 340 234 353 347 344 S 552 355 671 340 S 818 352 900 338 V 440 H 0 Z',
+    colors: { sky: '#176ca1', mid: '#57abb4', horizon: '#ffd18b', far: '#4f94a9', near: '#39758b', ground: '#557f70', deep: '#264d61', sun: '#fff1bd', glow: '#92dfe2' },
   },
   meadow: {
     name: 'Bakery Meadow',
@@ -95,30 +114,9 @@ const LANDSCAPE_PROFILES = {
     celestial: 'sun',
     headings: ['The bakery has gone country.', 'A loafly little patch of spending.', 'Fresh bakes are in full bloom.'],
     captions: ['Bakery spending is rising. The wildflowers smell faintly of sourdough.', 'A fresh loaf has become the local celebrity. Crumbs are invited.', 'The meadow is proof that good things take thyme to rise.'],
-    colors: { sky: '#7784a6', mid: '#c397a1', horizon: '#edb777', far: '#9a9b88', near: '#788566', ground: '#7b8b59', deep: '#465841', sun: '#fff0b8', glow: '#f2c578' },
-    foregroundPath: 'M 0 347 C 147 332 237 362 373 345 S 591 329 715 350 S 843 333 900 345 V 440 H 0 Z',
+    colors: { sky: '#5868a7', mid: '#a35b96', horizon: '#ffa95d', far: '#7a9561', near: '#60804d', ground: '#728b45', deep: '#3c573b', sun: '#fff08c', glow: '#ffa56e' },
   },
 }
-const CITY_BUILDINGS = [
-  { x: 28, y: 242, width: 58, height: 70 },
-  { x: 101, y: 220, width: 48, height: 92 },
-  { x: 164, y: 253, width: 64, height: 59 },
-  { x: 252, y: 232, width: 51, height: 80 },
-  { x: 319, y: 258, width: 70, height: 54 },
-  { x: 706, y: 245, width: 56, height: 67 },
-  { x: 777, y: 217, width: 60, height: 95 },
-  { x: 850, y: 250, width: 40, height: 62 },
-]
-const NIGHT_BUILDINGS = [
-  { x: 20, y: 232, width: 62, height: 90 },
-  { x: 94, y: 197, width: 60, height: 125 },
-  { x: 166, y: 247, width: 66, height: 75 },
-  { x: 250, y: 215, width: 72, height: 107 },
-  { x: 330, y: 257, width: 55, height: 65 },
-  { x: 708, y: 229, width: 70, height: 93 },
-  { x: 790, y: 190, width: 54, height: 132 },
-  { x: 855, y: 240, width: 44, height: 82 },
-]
 const TERRAIN_SHAPES = {
   city: { base: 330, relief: 42 },
   night_market: { base: 330, relief: 34 },
@@ -135,21 +133,57 @@ const NIGHT_STARS = [
   { x: 77, y: 58 }, { x: 152, y: 118 }, { x: 254, y: 52 }, { x: 367, y: 105 },
   { x: 489, y: 61 }, { x: 752, y: 49 }, { x: 833, y: 126 }, { x: 875, y: 68 },
 ]
+const BIOME_LANDMARKS = {
+  city: ['building', 'building', 'cottage'],
+  night_market: ['building', 'building', 'cottage'],
+  jungle: ['tree', 'tree', 'cottage'],
+  forest: ['tree', 'tree', 'cottage'],
+  tundra: ['mountain', 'mountain', 'igloo'],
+  coast: ['lighthouse', 'cottage', 'tree'],
+  wetlands: ['tree', 'cottage', 'lighthouse'],
+  desert: ['volcano', 'volcano', 'cottage'],
+  alpine: ['mountain', 'mountain', 'cottage'],
+  meadow: ['cottage', 'tree', 'cottage'],
+}
 
 function categoryLabel(category) {
   return String(category).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-function categoryColor(category, index) {
-  if (ACCENTS.has(category)) return ACCENT_PALETTE[['snacks_treats', 'alcohol', 'drinks', 'ready_meals'].indexOf(category)]
-  if (ESSENTIALS.has(category)) {
-    const paletteIndex = ['produce', 'dairy_eggs', 'bakery', 'meat_fish'].indexOf(category)
-    return EARTH_PALETTE[paletteIndex < 0 ? index % EARTH_PALETTE.length : paletteIndex]
-  }
-  return EARTH_PALETTE[index % EARTH_PALETTE.length]
+function categoryColor(category, index, biome, paletteOffset = 0) {
+  const palette = BIOME_CATEGORY_PALETTES[biome] ?? BIOME_CATEGORY_PALETTES.coast
+  const slot = CATEGORY_COLOR_SLOTS[category] ?? index
+  return palette[(slot + paletteOffset) % palette.length]
 }
 
-function landscapeProfile(categories, priceChanges, memberName) {
+function hashText(value) {
+  let hash = 2166136261
+  for (const character of value) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function seededValue(seed, salt) {
+  const value = Math.sin(seed * 0.00001 + salt * 78.233) * 43758.5453
+  return value - Math.floor(value)
+}
+
+function landmarkType(category, biome, variation) {
+  if (category === 'alcohol') {
+    if (['city', 'night_market'].includes(biome)) return 'building'
+    if (biome === 'tundra') return 'cottage'
+    return 'vineyard'
+  }
+  if (category === 'frozen' && biome === 'tundra') return 'igloo'
+  if (category === 'drinks' && ['coast', 'wetlands'].includes(biome)) return 'lighthouse'
+  if (category === 'produce' && ['forest', 'jungle'].includes(biome)) return 'tree'
+  const options = BIOME_LANDMARKS[biome] ?? ['cottage']
+  return options[Math.floor(variation * options.length)]
+}
+
+function landscapeProfile(categories, priceChanges, memberName, memberId) {
   const totalSpend = categories.reduce((total, category) => total + category.spend, 0)
   const shareFor = (predicate) => totalSpend
     ? categories.reduce((total, category) => total + (predicate(category.category) ? category.spend : 0), 0) / totalSpend
@@ -180,12 +214,22 @@ function landscapeProfile(categories, priceChanges, memberName) {
   const profile = LANDSCAPE_PROFILES[biome]
   const headings = biome === 'tundra' && largestPriceRise < 12 ? profile.frozenHeadings : profile.headings
   const captions = biome === 'tundra' && largestPriceRise < 12 ? profile.frozenCaptions : profile.captions
-  const nameSeed = Array.from(memberName ?? '').reduce((total, character) => total + character.charCodeAt(0), 0)
-  const spendSeed = categories.reduce((total, category, index) => total + Math.round(category.spend * 100) * (index + 1), 0)
-  const variant = Math.abs(spendSeed + Math.round(largestPriceRise * 10) + nameSeed) % captions.length
+  const spendSignature = [...categories]
+    .sort((left, right) => left.category.localeCompare(right.category))
+    .map((category) => `${category.category}:${category.spend.toFixed(2)}`)
+    .join('|')
+  const trendSignature = priceChanges
+    .map((change) => `${change.category}:${change.product}:${change.unit_price_change_pct ?? change.price_change_pct ?? 0}`)
+    .sort()
+    .join('|')
+  const identity = memberId ?? memberName ?? 'household'
+  const sceneSeed = hashText(`${identity}|${spendSignature}|${trendSignature}`)
+  const variant = sceneSeed % captions.length
   return {
     ...profile,
     biome,
+    sceneSeed,
+    paletteOffset: sceneSeed % BIOME_CATEGORY_PALETTES[biome].length,
     largestPriceRise,
     mood: biome === 'tundra' && largestPriceRise < 12 ? 'freezer-favorite' : profile.mood,
     heading: headings[variant],
@@ -229,172 +273,391 @@ function Bars({ rows, label, value }) {
   )
 }
 
-function BiomeScenery({ profile, movement }) {
+function BiomeScenery({ profile, spendScale }) {
   const { biome, colors, celestial } = profile
-  const buildings = biome === 'city' ? CITY_BUILDINGS : NIGHT_BUILDINGS
+  const radius = 30 + spendScale * 22
+  const celestialX = 525 + seededValue(profile.sceneSeed, 3) * 250
+  const celestialY = 96 + seededValue(profile.sceneSeed, 4) * 78
+  const horizon = 224 + seededValue(profile.sceneSeed, 6) * 24
+  const mountainBiomes = ['coast', 'wetlands', 'tundra', 'alpine'].includes(biome)
+  const waterBiomes = ['coast', 'wetlands', 'tundra', 'alpine'].includes(biome)
+  const mountainProfile = [
+    [0, 84], [0.1, 46], [0.19, -24], [0.29, 30], [0.4, -74], [0.51, 16],
+    [0.63, -118], [0.73, 22], [0.84, -53], [0.91, 18], [1, 76],
+  ]
+  const mountainPoints = (offset, scale) => mountainProfile.map(([position, peak], index) => ({
+    x: position === 0 || position === 1
+      ? position * 900
+      : position * 900 + (seededValue(profile.sceneSeed, index + offset + 81) - 0.5) * 18,
+    y: horizon + offset + peak * scale * (0.9 + seededValue(profile.sceneSeed, index + offset + 91) * 0.2),
+  }))
+  const mountainRange = (points) => `M ${points.map(({ x, y }) => `${x} ${y}`).join(' L ')} L 900 360 L 0 360 Z`
+  const distantMountains = mountainPoints(-4, 0.72)
+  const nearMountains = mountainPoints(24, 0.55)
+  const skyline = Array.from({ length: 13 }, (_, index) => ({
+    x: index * 73 + seededValue(profile.sceneSeed, index + 141) * 18,
+    width: 30 + seededValue(profile.sceneSeed, index + 151) * 27,
+    height: 45 + seededValue(profile.sceneSeed, index + 161) * 85,
+  }))
 
   return (
     <>
+      <ellipse
+        cx={celestialX}
+        cy={horizon - 22}
+        rx="310"
+        ry="102"
+        fill={colors.glow}
+        opacity=".13"
+        filter="url(#landscape-soft)"
+      />
+      <g fill="none" stroke="#fff8e9" strokeLinecap="round" opacity=".2">
+        <path d={`M ${70 + seededValue(profile.sceneSeed, 171) * 90} 122 Q 142 108 214 121 T 350 116`} strokeWidth="3" />
+        <path d={`M ${570 + seededValue(profile.sceneSeed, 172) * 80} 151 Q 660 138 738 150 T 864 143`} strokeWidth="2" />
+        <path d={`M ${300 + seededValue(profile.sceneSeed, 173) * 70} 184 Q 372 176 443 183`} strokeWidth="1.5" />
+      </g>
       {celestial === 'sun' ? (
         <g>
-          <circle cx="620" cy="170" r={82 + movement * 15} fill={colors.glow} opacity=".28" filter="url(#landscape-soft)" />
-          <circle cx="620" cy="170" r="48" fill="url(#sunset-sun)" />
-          <path d="M 570 172 H 670 M 572 184 H 668" stroke={colors.near} strokeWidth="3" opacity=".35" />
+          <circle cx={celestialX} cy={celestialY} r={radius + 28} fill={colors.glow} opacity=".3" filter="url(#landscape-soft)" />
+          <circle cx={celestialX} cy={celestialY} r={radius} fill="url(#sunset-sun)" />
+          <path d={`M ${celestialX - radius + 7} ${celestialY + 2} H ${celestialX + radius - 7}`} stroke={colors.near} strokeWidth="3" opacity=".4" />
         </g>
       ) : (
         <g>
-          {NIGHT_STARS.map((star) => (
-            <path key={`${star.x}-${star.y}`} d={`M ${star.x} ${star.y - 4} L ${star.x + 1.5} ${star.y - 1.5} L ${star.x + 4} ${star.y} L ${star.x + 1.5} ${star.y + 1.5} L ${star.x} ${star.y + 4} L ${star.x - 1.5} ${star.y + 1.5} L ${star.x - 4} ${star.y} L ${star.x - 1.5} ${star.y - 1.5} Z`} fill="#fff3cd" opacity=".82" />
-          ))}
-          <circle cx="684" cy="112" r="49" fill={colors.glow} opacity=".22" filter="url(#landscape-soft)" />
-          <path d="M 678 72 A 40 40 0 1 0 678 152 A 29 40 0 0 1 678 72 Z" fill="#f3edcf" />
+          {NIGHT_STARS.map((star, index) => {
+            const x = Math.max(12, Math.min(888, star.x + (seededValue(profile.sceneSeed, index + 10) - 0.5) * 80))
+            const y = Math.max(18, star.y + (seededValue(profile.sceneSeed, index + 20) - 0.5) * 44)
+            return (
+              <path key={`${star.x}-${star.y}`} d={`M ${x} ${y - 4} L ${x + 1.5} ${y - 1.5} L ${x + 4} ${y} L ${x + 1.5} ${y + 1.5} L ${x} ${y + 4} L ${x - 1.5} ${y + 1.5} L ${x - 4} ${y} L ${x - 1.5} ${y - 1.5} Z`} fill="#fff3cd" opacity=".9" />
+            )
+          })}
+          <circle cx={celestialX} cy={celestialY} r={radius + 20} fill={colors.glow} opacity=".26" filter="url(#landscape-soft)" />
+          <path d={`M ${celestialX} ${celestialY - radius} A ${radius} ${radius} 0 1 0 ${celestialX} ${celestialY + radius} A ${radius * 0.72} ${radius} 0 0 1 ${celestialX} ${celestialY - radius} Z`} fill="#fff3cd" />
         </g>
       )}
-      {biome === 'city' && (
+      {Array.from({ length: 7 }, (_, index) => (
+        <circle
+          key={`glimmer-${index}`}
+          cx={24 + seededValue(profile.sceneSeed, index + 31) * 852}
+          cy={35 + seededValue(profile.sceneSeed, index + 43) * 190}
+          r={1.5 + seededValue(profile.sceneSeed, index + 59) * 2.2}
+          fill={colors.glow}
+          opacity=".62"
+        />
+      ))}
+      {mountainBiomes && (
         <g>
-          {buildings.map((building, buildingIndex) => (
-            <g key={building.x}>
-              <rect x={building.x} y={building.y} width={building.width} height={building.height} rx="3" fill={buildingIndex % 2 ? '#51415f' : '#634765'} />
-              {Array.from({ length: 9 }, (_, index) => (
-                <rect
-                  key={index}
-                  x={building.x + 8 + (index % 3) * 12}
-                  y={building.y + 9 + Math.floor(index / 3) * 14}
-                  width="4"
-                  height="6"
-                  rx="1"
-                  fill={index % 3 ? '#ffd486' : '#f5a78a'}
-                  opacity=".82"
+          <path d={mountainRange(distantMountains)} fill="url(#landscape-distant)" opacity=".78" />
+          <path d={mountainRange(nearMountains)} fill="url(#landscape-midground)" opacity=".84" />
+          {['tundra', 'alpine'].includes(biome) && (
+            <g fill="#f3fbff" opacity=".88">
+              {[2, 4, 6, 8].map((peakIndex) => {
+                const peak = nearMountains[peakIndex]
+                const width = peakIndex === 6 ? 21 : 15
+                return (
+                  <path
+                    key={`snowcap-${peakIndex}`}
+                    d={`M ${peak.x - width} ${peak.y + 20} L ${peak.x} ${peak.y} L ${peak.x + width} ${peak.y + 20} L ${peak.x + 7} ${peak.y + 13} L ${peak.x} ${peak.y + 20} L ${peak.x - 6} ${peak.y + 12} Z`}
+                  />
+                )
+              })}
+            </g>
+          )}
+        </g>
+      )}
+      {waterBiomes && (
+        <g>
+          <path d={`M 0 ${horizon + 72} Q 166 ${horizon + 58} 330 ${horizon + 75} T 660 ${horizon + 68} T 900 ${horizon + 78} L 900 366 L 0 366 Z`} fill="url(#landscape-water)" opacity=".74" />
+          {[0, 1, 2, 3, 4].map((index) => {
+            const x = 70 + seededValue(profile.sceneSeed, index + 181) * 720
+            const y = horizon + 91 + index * 17
+            const width = 32 + seededValue(profile.sceneSeed, index + 191) * 76
+            return <path key={`waterline-${index}`} d={`M ${x} ${y} q ${width / 2} -4 ${width} 0`} stroke="#e8fff3" strokeWidth="2" opacity=".3" />
+          })}
+        </g>
+      )}
+      {['city', 'night_market'].includes(biome) && (
+        <g>
+          {skyline.map((building, index) => (
+            <g key={`skyline-${index}`} opacity={index % 2 ? '.52' : '.68'}>
+              <rect x={building.x} y={horizon + 32 - building.height} width={building.width} height={building.height + 70} rx="2" fill="url(#landscape-distant)" />
+              {[0, 1, 2].map((row) => (
+                <path
+                  key={row}
+                  d={`M ${building.x + 7} ${horizon + 15 - building.height + row * 17} h 5 m 7 0 h 5`}
+                  stroke={colors.glow}
+                  strokeWidth="2"
+                  opacity=".75"
                 />
               ))}
             </g>
           ))}
-          <path d="M 38 310 H 389 M 42 318 H 390" stroke="#f5b875" strokeWidth="2" opacity=".65" />
         </g>
       )}
-      {biome === 'night_market' && (
+      {['forest', 'jungle', 'meadow'].includes(biome) && (
         <g>
-          {buildings.map((building, buildingIndex) => (
-            <g key={building.x}>
-              <rect x={building.x} y={building.y} width={building.width} height={building.height} rx="3" fill={buildingIndex % 2 ? '#20294e' : '#2b2853'} />
-              {Array.from({ length: 9 }, (_, index) => (
-                <rect key={index} x={building.x + 8 + (index % 3) * 13} y={building.y + 10 + Math.floor(index / 3) * 15} width="5" height="7" rx="1" fill={index % 2 ? '#64e0ce' : '#f283b6'} opacity=".9" />
-              ))}
-            </g>
-          ))}
-          <path d="M 28 303 H 390 M 30 314 H 395" stroke="#f382b9" strokeWidth="3" opacity=".8" />
-          <path d="M 68 297 L 93 281 L 118 297 M 166 297 L 191 281 L 216 297 M 266 297 L 291 281 L 316 297" fill="#ed9364" stroke="#ffe2a2" strokeWidth="2" />
-        </g>
-      )}
-      {biome === 'wetlands' && (
-        <g>
-          <path d="M 0 278 C 130 248 225 304 355 274 S 603 248 724 284 S 834 294 900 264 L 900 361 L 0 361 Z" fill="#244f58" opacity=".83" />
-          <path d="M 0 291 C 130 261 225 317 355 287 S 603 261 724 297 S 834 307 900 277 M 0 323 C 130 293 225 349 355 319 S 603 293 724 329 S 834 339 900 309" fill="none" stroke="#8ab6a0" strokeWidth="2" opacity=".65" />
-          {[75, 186, 728, 842].map((x) => (
-            <g key={x} stroke="#324f41" strokeWidth="5" strokeLinecap="round">
-              <path d={`M ${x} 310 V 250 M ${x} 270 L ${x - 19} 247 M ${x} 278 L ${x + 18} 252`} />
-              <ellipse cx={x - 21} cy="244" rx="17" ry="7" fill="#6d8d62" transform={`rotate(24 ${x - 21} 244)`} />
-              <ellipse cx={x + 20} cy="249" rx="17" ry="7" fill="#6d8d62" transform={`rotate(-25 ${x + 20} 249)`} />
-            </g>
-          ))}
-        </g>
-      )}
-      {biome === 'jungle' && (
-        <g>
-          <path d="M 0 0 H 145 C 124 59 164 82 130 143 C 98 197 130 225 96 283 H 0 Z M 900 0 H 755 C 776 59 736 82 770 143 C 802 197 770 225 804 283 H 900 Z" fill="#1e584e" opacity=".94" />
-          {[32, 111, 790, 868].map((x, index) => (
-            <g key={x} fill="none" stroke="#204a42" strokeLinecap="round">
-              <path d={`M ${x} 356 C ${x + (index % 2 ? -7 : 8)} 292 ${x - 7} 232 ${x + 3} 163`} strokeWidth="15" />
-              <path d={`M ${x + 2} 282 C ${x - 22} 260 ${x - 19} 237 ${x - 31} 222 M ${x + 3} 254 C ${x + 22} 237 ${x + 25} 218 ${x + 34} 205`} strokeWidth="4" />
-              <ellipse cx={x - 27} cy="220" rx="22" ry="9" fill="#91ba65" transform={`rotate(28 ${x - 27} 220)`} />
-              <ellipse cx={x + 31} cy="201" rx="23" ry="9" fill="#60a36a" transform={`rotate(-31 ${x + 31} 201)`} />
-              <ellipse cx={x - 9} cy="173" rx="23" ry="10" fill="#acc76c" transform={`rotate(-21 ${x - 9} 173)`} />
-            </g>
-          ))}
-        </g>
-      )}
-      {biome === 'forest' && (
-        <g fill="#294a3b">
-          {[18, 106, 192, 704, 794, 866].map((x, index) => (
-            <g key={x} transform={`translate(${x} ${index % 2 ? 18 : 0})`}>
-              <path d="M 0 333 L 31 270 L 62 333 Z M 5 305 L 31 244 L 57 305 Z M 12 278 L 31 221 L 50 278 Z" />
-              <rect x="27" y="324" width="8" height="19" fill="#654d3e" />
-            </g>
-          ))}
-        </g>
-      )}
-      {biome === 'tundra' && (
-        <g>
-          <path d="M 0 302 L 101 188 L 172 255 L 286 136 L 414 285 L 542 164 L 665 279 L 790 152 L 900 273 L 900 345 L 0 345 Z" fill="#9fb7cd" />
-          <path d="M 62 231 L 101 188 L 132 218 L 106 207 L 95 219 L 84 210 Z M 244 180 L 286 136 L 324 181 L 293 163 L 280 175 L 269 164 Z M 505 200 L 542 164 L 578 198 L 548 185 L 537 196 L 525 185 Z M 750 193 L 790 152 L 831 197 L 798 178 L 785 190 L 774 179 Z" fill="#edf1ee" />
-        </g>
-      )}
-      {biome === 'coast' && (
-        <g>
-          <path d="M 0 248 C 118 226 227 277 355 250 S 597 225 718 258 S 835 269 900 243 L 900 365 L 0 365 Z" fill="#286d81" />
-          <path d="M 0 267 C 118 245 227 296 355 269 S 597 244 718 277 S 835 288 900 262 M 0 301 C 118 279 227 330 355 303 S 597 278 718 311 S 835 322 900 296" fill="none" stroke="#bce0d4" strokeWidth="3" opacity=".72" />
-          <path d="M 0 324 C 152 307 265 344 403 325 S 665 314 900 329 V 440 H 0 Z" fill="#c6a575" opacity=".85" />
+          <path d={`M 0 ${horizon + 82} Q 172 ${horizon + 18} 352 ${horizon + 77} T 700 ${horizon + 56} T 900 ${horizon + 76} L 900 365 L 0 365 Z`} fill="url(#landscape-distant)" opacity=".58" />
+          {Array.from({ length: 12 }, (_, index) => {
+            const x = index * 86 + seededValue(profile.sceneSeed, index + 201) * 34
+            const y = horizon + 52 + seededValue(profile.sceneSeed, index + 211) * 28
+            const size = 17 + seededValue(profile.sceneSeed, index + 221) * 19
+            return biome === 'meadow' ? (
+              <circle key={`distant-growth-${index}`} cx={x} cy={y} r={size * 0.18} fill={colors.glow} opacity=".62" />
+            ) : (
+              <path
+                key={`distant-growth-${index}`}
+                d={`M ${x} ${y - size} L ${x - size * 0.55} ${y + size * 0.4} H ${x + size * 0.55} Z`}
+                fill={index % 2 ? colors.far : colors.near}
+                opacity=".62"
+              />
+            )
+          })}
         </g>
       )}
       {biome === 'desert' && (
-        <g>
-          <path d="M 0 290 C 122 222 243 251 350 291 S 556 344 681 276 S 829 245 900 282 L 900 363 L 0 363 Z" fill="#d89a59" />
-          <path d="M 0 320 C 162 275 263 309 394 340 S 663 361 900 312" fill="none" stroke="#f2c477" strokeWidth="4" opacity=".7" />
-          {[95, 770].map((x) => (
-            <g key={x} stroke="#46604a" strokeWidth="9" strokeLinecap="round">
-              <path d={`M ${x} 324 V 257 M ${x} 288 C ${x - 23} 290 ${x - 23} 276 ${x - 23} 267 M ${x} 301 C ${x + 24} 302 ${x + 24} 289 ${x + 24} 280`} />
-            </g>
-          ))}
+        <g fill="none" strokeLinecap="round">
+          <path d={`M 0 ${horizon + 76} Q 165 ${horizon + 5} 328 ${horizon + 76} T 650 ${horizon + 51} T 900 ${horizon + 76}`} stroke={colors.far} strokeWidth="42" opacity=".48" />
+          <path d={`M 0 ${horizon + 98} Q 186 ${horizon + 43} 366 ${horizon + 98} T 704 ${horizon + 82} T 900 ${horizon + 98}`} stroke={colors.near} strokeWidth="36" opacity=".62" />
         </g>
       )}
-      {biome === 'alpine' && (
-        <g>
-          <path d="M 0 302 L 97 202 L 174 278 L 319 119 L 478 297 L 605 172 L 751 298 L 836 211 L 900 270 L 900 348 L 0 348 Z" fill="#63889b" />
-          <path d="M 67 233 L 97 202 L 129 234 L 102 221 L 94 231 L 84 222 Z M 269 175 L 319 119 L 372 178 L 325 153 L 313 168 L 301 154 Z M 569 208 L 605 172 L 642 209 L 612 193 L 600 205 L 590 194 Z" fill="#eff3e7" />
-          <path d="M 325 156 C 334 207 315 240 328 289" fill="none" stroke="#c7e4dc" strokeWidth="5" opacity=".82" />
+      {biome === 'tundra' && (
+        <g transform={`translate(0 ${(seededValue(profile.sceneSeed, 71) - 0.5) * 34})`} fill="none" stroke="#a4f0e2" strokeLinecap="round" opacity=".72">
+          <path d="M 40 91 C 165 49 243 111 364 75 S 564 42 675 84" strokeWidth="6" />
+          <path d="M 103 110 C 220 77 296 129 419 92 S 586 73 708 105" strokeWidth="2.5" />
         </g>
       )}
-      {biome === 'meadow' && (
-        <g>
-          <path d="M 0 287 C 126 245 234 295 363 269 S 614 245 738 278 S 850 291 900 265 L 900 357 L 0 357 Z" fill="#84975e" />
-          <path d="M 741 273 V 186 M 718 204 H 764 M 741 186 L 719 204 L 741 222 L 763 204 Z" fill="none" stroke="#5b5948" strokeWidth="5" />
-          {[60, 170, 265, 660, 812, 865].map((x, index) => (
-            <g key={x} transform={`translate(${x} ${300 + (index % 2) * 22})`}>
-              <path d="M 0 34 V 0" stroke="#d7df93" strokeWidth="2" />
-              <circle cy="-4" r="6" fill={index % 2 ? '#f5c2b0' : '#f4df8d'} />
-              <circle cx="-7" cy="-4" r="4" fill="#f4df8d" />
-              <circle cx="7" cy="-4" r="4" fill="#f4df8d" />
-              <circle cy="-11" r="4" fill="#f4df8d" />
-              <circle cy="3" r="4" fill="#f4df8d" />
-            </g>
-          ))}
+      {biome === 'night_market' && (
+        <g transform={`translate(0 ${(seededValue(profile.sceneSeed, 73) - 0.5) * 22})`} stroke="#ffe5a7" strokeWidth="2" opacity=".78">
+          <path d="M 0 72 Q 220 118 440 72 T 900 72" fill="none" />
+          {[95, 245, 395, 545, 695, 845].map((x) => <circle key={x} cx={x} cy={76 + Math.abs(450 - x) * 0.1} r="4" fill="#ffc36d" />)}
         </g>
       )}
     </>
   )
 }
 
-function Tapestry({ rows, priceChanges, memberName }) {
+function LandscapeLandmark({ landmark, selected }) {
+  const { x, baseY, width, height, type, color, biome, colors } = landmark
+  const outline = selected ? '#fff7e7' : 'none'
+  const outlineWidth = selected ? 3 : 0
+  const cottageWetlands = type === 'cottage' && biome === 'wetlands'
+  const houseBottom = cottageWetlands ? -height * 0.12 : 0
+  const houseTop = -height * 0.65
+
+  return (
+    <g transform={`translate(${x} ${baseY})`} stroke={outline} strokeWidth={outlineWidth} strokeLinejoin="round">
+      {type === 'mountain' && (
+        <>
+          <path d={`M ${-width / 2} 0 L 0 ${-height} L ${width / 2} 0 Z`} fill={color} />
+          {['tundra', 'alpine'].includes(biome) && (
+            <path d={`M ${-width * 0.2} ${-height * 0.6} L 0 ${-height} L ${width * 0.18} ${-height * 0.62} L ${width * 0.04} ${-height * 0.68} L 0 ${-height * 0.56} L ${-width * 0.07} ${-height * 0.68} Z`} fill="#f3fbff" stroke="none" />
+          )}
+        </>
+      )}
+      {type === 'volcano' && (
+        <>
+          <path d={`M ${-width / 2} 0 L ${-width * 0.15} ${-height * 0.83} L ${-width * 0.04} ${-height * 0.7} L ${width * 0.04} ${-height * 0.7} L ${width * 0.17} ${-height * 0.84} L ${width / 2} 0 Z`} fill={color} />
+          <path d={`M ${-width * 0.16} ${-height * 0.82} Q 0 ${-height * 0.65} ${width * 0.17} ${-height * 0.83} Q 0 ${-height * 0.91} ${-width * 0.16} ${-height * 0.82}`} fill={colors.sun} stroke="none" />
+          <path d={`M 0 ${-height * 0.72} C ${-width * 0.08} ${-height * 0.42} ${width * 0.16} ${-height * 0.35} ${width * 0.14} 0`} fill="none" stroke={colors.glow} strokeWidth="3" />
+        </>
+      )}
+      {type === 'igloo' && (
+        <>
+          <path d={`M ${-width / 2} 0 A ${width / 2} ${height} 0 0 1 ${width / 2} 0 Z`} fill={color} />
+          <path d={`M ${-width * 0.23} 0 A ${width * 0.23} ${height * 0.48} 0 0 1 ${width * 0.23} 0 Z`} fill={colors.near} stroke="none" />
+          <path d={`M ${-width * 0.35} ${-height * 0.33} Q 0 ${-height * 0.2} ${width * 0.35} ${-height * 0.33} M ${-width * 0.45} ${-height * 0.65} Q 0 ${-height * 0.5} ${width * 0.45} ${-height * 0.65}`} fill="none" stroke={colors.glow} strokeWidth="2" />
+        </>
+      )}
+      {type === 'tree' && (
+        <>
+          <rect x={-width * 0.08} y={-height * 0.48} width={width * 0.16} height={height * 0.48} rx="3" fill={colors.deep} stroke="none" />
+          {biome === 'forest' ? (
+            <path d={`M 0 ${-height} L ${-width * 0.38} ${-height * 0.56} H ${-width * 0.2} L ${-width * 0.48} ${-height * 0.23} H ${width * 0.48} L ${width * 0.2} ${-height * 0.56} H ${width * 0.38} Z`} fill={color} />
+          ) : (
+            <>
+              <circle cx="0" cy={-height * 0.69} r={width * 0.32} fill={color} />
+              <circle cx={-width * 0.2} cy={-height * 0.54} r={width * 0.23} fill={color} />
+              <circle cx={width * 0.2} cy={-height * 0.54} r={width * 0.23} fill={color} />
+            </>
+          )}
+        </>
+      )}
+      {type === 'vineyard' && (
+        <g fill="none" stroke={colors.near} strokeLinecap="round">
+          {[0.25, 0.52, 0.79].map((fraction, index) => {
+            const vineX = -width / 2 + width * fraction
+            return (
+              <g key={fraction}>
+                <path d={`M ${vineX} 0 Q ${vineX - 5} ${-height * 0.55} ${vineX + (index % 2 ? -4 : 4)} ${-height}`} strokeWidth="3" />
+                <path d={`M ${vineX - 6} ${-height * 0.55} q -9 -7 -12 0 q 7 8 12 0 M ${vineX + 5} ${-height * 0.76} q 9 -7 12 0 q -7 8 -12 0`} fill={colors.glow} stroke="none" />
+                <circle cx={vineX + 4} cy={-height * 0.34} r="3" fill={color} stroke="none" />
+                <circle cx={vineX + 9} cy={-height * 0.3} r="3" fill={color} stroke="none" />
+              </g>
+            )
+          })}
+          <path d={`M ${-width / 2} 0 Q 0 ${-height * 0.12} ${width / 2} 0`} strokeWidth="2" />
+        </g>
+      )}
+      {type === 'lighthouse' && (
+        <>
+          <path d={`M ${-width * 0.22} 0 L ${-width * 0.13} ${-height * 0.8} H ${width * 0.13} L ${width * 0.22} 0 Z`} fill="#f4ead2" />
+          <path d={`M ${-width * 0.15} ${-height * 0.53} H ${width * 0.16} M ${-width * 0.18} ${-height * 0.31} H ${width * 0.18}`} stroke={color} strokeWidth="5" />
+          <path d={`M ${-width * 0.18} ${-height * 0.8} L 0 ${-height} L ${width * 0.18} ${-height * 0.8} Z`} fill={color} />
+          <path d={`M 0 ${-height * 0.89} L ${-width * 0.55} ${-height * 0.98} M 0 ${-height * 0.89} L ${width * 0.55} ${-height * 0.98}`} stroke={colors.sun} strokeWidth="3" />
+        </>
+      )}
+      {(type === 'cottage' || type === 'building') && (
+        <>
+          {type === 'cottage' ? (
+            <>
+              <path d={`M ${-width * 0.46} ${houseBottom} V ${houseTop} L 0 ${-height * 0.98} L ${width * 0.46} ${houseTop} V ${houseBottom} Z`} fill="url(#landscape-structure)" stroke={colors.near} strokeWidth="1.2" />
+              <path d={`M ${-width * 0.63} ${-height * 0.61} L 0 ${-height} L ${width * 0.63} ${-height * 0.61} L ${width * 0.48} ${-height * 0.54} H ${-width * 0.48} Z`} fill="url(#landscape-house-roof)" stroke={colors.deep} strokeWidth="1.4" />
+              <path d={`M ${-width * 0.46} ${-height * 0.62} L 0 ${-height * 0.96} L ${width * 0.05} ${-height * 0.83} L ${-width * 0.31} ${-height * 0.59} Z`} fill={biome === 'tundra' ? '#f3fbff' : colors.glow} opacity={biome === 'tundra' ? '.82' : '.22'} />
+              <path d={`M ${-width * 0.48} ${-height * 0.54} H ${width * 0.48}`} fill="none" stroke={color} strokeWidth="1.4" opacity=".55" />
+              {cottageWetlands && <path d={`M ${-width * 0.34} ${houseBottom} V 0 M ${width * 0.34} ${houseBottom} V 0`} stroke={colors.deep} strokeWidth="3" />}
+              <rect x={-width * 0.3} y={-height * 0.48} width={width * 0.15} height={height * 0.12} rx="1" fill={colors.sun} opacity=".7" />
+              <rect x={width * 0.15} y={-height * 0.48} width={width * 0.15} height={height * 0.12} rx="1" fill={colors.sun} opacity=".7" />
+              <rect x={-width * 0.07} y={-height * 0.32} width={width * 0.14} height={height * 0.32 + houseBottom} rx="2" fill={colors.deep} opacity=".8" />
+              <rect x={width * 0.28} y={-height * 0.91} width={width * 0.09} height={height * 0.19} rx="1" fill="url(#landscape-house-roof)" opacity=".86" />
+            </>
+          ) : (
+            <>
+              <rect x={-width / 2} y={-height * 0.65} width={width} height={height * 0.65} rx="2" fill="url(#landscape-structure)" stroke={colors.near} strokeWidth="1.2" />
+              <path d={`M ${-width * 0.55} ${-height * 0.64} H ${width * 0.55} L ${width * 0.4} ${-height * 0.76} H ${-width * 0.4} Z`} fill="url(#landscape-house-roof)" />
+              {[-0.3, 0, 0.3].map((offset) => (
+                <g key={offset}>
+                  <rect x={width * offset - width * 0.06} y={-height * 0.52} width={width * 0.12} height={height * 0.12} rx="1" fill={colors.glow} opacity=".72" />
+                  <rect x={width * offset - width * 0.06} y={-height * 0.31} width={width * 0.12} height={height * 0.12} rx="1" fill={colors.sun} opacity=".68" />
+                </g>
+              ))}
+              <path d={`M ${-width * 0.5} ${-height * 0.07} H ${width * 0.5}`} fill="none" stroke={color} strokeWidth="1.4" opacity=".55" />
+            </>
+          )}
+        </>
+      )}
+    </g>
+  )
+}
+
+function ForegroundGrowth({ category, point, biome, color, colors, height }) {
+  const { x, y } = point
+  const scaleTransform = `translate(${x} ${y}) scale(2) translate(${-x} ${-y})`
+
+  if (category === 'alcohol') {
+    return (
+      <g transform={scaleTransform} fill="none" strokeLinecap="round" opacity=".96">
+        <path d={`M ${x - 24} ${y + 5} Q ${x - 12} ${y - 9} ${x} ${y + 3} T ${x + 24} ${y + 4}`} stroke={colors.glow} strokeWidth="3" />
+        <path d={`M ${x - 13} ${y - 1} q -9 -8 -12 0 q 7 8 12 0 M ${x + 12} ${y} q 9 -8 12 0 q -7 8 -12 0`} fill={colors.sun} stroke="none" />
+        <circle cx={x + 7} cy={y + 8} r="3" fill={color} stroke="none" />
+        <circle cx={x + 12} cy={y + 10} r="3" fill={color} stroke="none" />
+      </g>
+    )
+  }
+  if (['city', 'night_market'].includes(biome)) {
+    const poleTop = y - height
+    const lampX = x + height * 0.24
+    const lampColor = biome === 'night_market' ? colors.glow : colors.sun
+    return (
+      <g transform={scaleTransform}>
+        <path d={`M ${x} ${y + 4} V ${poleTop + 8} Q ${x} ${poleTop} ${x + height * 0.16} ${poleTop} H ${lampX}`} fill="none" stroke={colors.deep} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={`M ${x - 5} ${y + 4} H ${x + 5}`} stroke={colors.deep} strokeWidth="2.5" strokeLinecap="round" />
+        <path d={`M ${lampX - 5} ${poleTop + 1} H ${lampX + 5} L ${lampX + 7} ${poleTop + 6} H ${lampX - 5} Z`} fill={lampColor} stroke={colors.deep} strokeWidth="1.3" strokeLinejoin="round" />
+        <path d={`M ${lampX - 4} ${poleTop + 7} L ${lampX + 6} ${poleTop + 7} L ${lampX + 15} ${poleTop + 27} H ${lampX - 13} Z`} fill={lampColor} opacity=".16" />
+        <path d={`M ${x + 1} ${poleTop + 12} V ${y - 5}`} stroke={colors.glow} strokeWidth="1" opacity=".7" />
+      </g>
+    )
+  }
+  if (biome === 'desert') {
+    return (
+      <g transform={scaleTransform}>
+        <path d={`M ${x} ${y + 3} V ${y - height} M ${x} ${y - height * 0.45} C ${x - 11} ${y - height * 0.45} ${x - 10} ${y - height * 0.67} ${x - 10} ${y - height * 0.72} M ${x} ${y - height * 0.3} C ${x + 10} ${y - height * 0.3} ${x + 10} ${y - height * 0.52} ${x + 10} ${y - height * 0.56}`} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />
+      </g>
+    )
+  }
+  if (['tundra', 'alpine'].includes(biome)) {
+    return (
+      <g transform={scaleTransform} fill={colors.glow} opacity=".95">
+        <path d={`M ${x} ${y + 2} L ${x - 7} ${y - height * 0.46} L ${x} ${y - height} L ${x + 7} ${y - height * 0.46} Z`} />
+        <path d={`M ${x + 12} ${y + 2} L ${x + 8} ${y - height * 0.3} L ${x + 12} ${y - height * 0.63} L ${x + 16} ${y - height * 0.3} Z`} opacity=".72" />
+      </g>
+    )
+  }
+  if (['coast', 'wetlands'].includes(biome)) {
+    return (
+      <g transform={scaleTransform} fill="none" stroke={color} strokeLinecap="round">
+        <path d={`M ${x} ${y + 3} Q ${x - 3} ${y - height * 0.5} ${x - 1} ${y - height}`} strokeWidth="2.5" />
+        <path d={`M ${x + 6} ${y + 3} Q ${x + 8} ${y - height * 0.4} ${x + 10} ${y - height * 0.74}`} strokeWidth="2" />
+        <path d={`M ${x - 14} ${y + 8} Q ${x - 7} ${y + 4} ${x} ${y + 8} T ${x + 14} ${y + 8}`} stroke={colors.glow} strokeWidth="2" />
+      </g>
+    )
+  }
+  if (biome === 'meadow') {
+    return (
+      <g transform={scaleTransform}>
+        {[-9, 0, 9].map((offset, index) => (
+          <g key={offset}>
+            <path d={`M ${x + offset} ${y + 4} V ${y - height * (index === 1 ? 0.85 : 0.62)}`} stroke="#bce27a" strokeWidth="2" />
+            <circle cx={x + offset} cy={y - height * (index === 1 ? 0.85 : 0.62)} r="3" fill={index % 2 ? colors.sun : color} />
+          </g>
+        ))}
+      </g>
+    )
+  }
+  return (
+    <g transform={scaleTransform} fill={color} opacity=".95">
+      <path d={`M ${x - 2} ${y + 5} C ${x - 22} ${y - height * 0.48} ${x - 20} ${y - height} ${x - 4} ${y - height * 0.78} C ${x + 2} ${y - height * 0.66} ${x + 1} ${y - height * 0.3} ${x - 2} ${y + 5} Z`} />
+      <path d={`M ${x + 2} ${y + 5} C ${x + 20} ${y - height * 0.56} ${x + 27} ${y - height * 0.25} ${x + 14} ${y - height * 0.1} C ${x + 8} ${y + 1} ${x + 4} ${y + 4} ${x + 2} ${y + 5} Z`} />
+    </g>
+  )
+}
+
+function Tapestry({ rows, priceChanges, memberName, memberId }) {
   const categories = [...rows].sort((a, b) => b.spend - a.spend)
-  const essentials = categories.filter((category) => !ACCENTS.has(category.category))
-  const accents = categories.filter((category) => ACCENTS.has(category.category))
-  const profile = landscapeProfile(categories, priceChanges, memberName)
+  const profile = landscapeProfile(categories, priceChanges, memberName, memberId)
   const { colors, biome } = profile
   const movement = Math.min(1, profile.largestPriceRise / 30)
-  const inflationWave = 12 + movement * 38
+  const spendScale = Math.min(1, Math.sqrt((categories[0]?.spend ?? 0) / 250))
+  const seedFor = (salt) => seededValue(profile.sceneSeed, salt)
   const spendMax = Math.max(...categories.map((category) => category.spend), 1)
   const { base: terrainBase, relief: terrainRelief } = TERRAIN_SHAPES[biome]
-  const accentBaseY = profile.celestial === 'moon' ? 153 : 178
-  const terrainPoints = essentials.map((category, index) => ({
+  const foregroundCount = categories.length > 1 ? Math.max(1, Math.floor(categories.length / 2)) : categories.length
+  const foregroundCategories = [...categories].reverse().slice(0, foregroundCount)
+  const backgroundCategories = categories.length === 1
+    ? categories
+    : categories.slice(0, categories.length - foregroundCount)
+  const terrainPoints = foregroundCategories.map((category, index) => ({
     category,
-    x: essentials.length === 1 ? 450 : 108 + index * (684 / (essentials.length - 1)),
-    y: terrainBase - (category.spend / spendMax) * terrainRelief,
+    x: (foregroundCategories.length === 1 ? 450 : 96 + index * (708 / (foregroundCategories.length - 1)))
+      + (seedFor(index + 11) - 0.5) * 34,
+    y: terrainBase - 12
+      - Math.pow(category.spend / spendMax, 0.65) * terrainRelief * (0.62 + seedFor(index + 31) * 0.2)
+      + (seedFor(index + 51) - 0.5) * 11,
   }))
-  const terrainCurvePoints = [{ x: 0, y: terrainBase }, ...terrainPoints, { x: 900, y: terrainBase }]
+  const terrainCurvePoints = [{ x: 0, y: terrainBase + 10 }, ...terrainPoints, { x: 900, y: terrainBase + 10 }]
   const terrainLine = smoothPath(terrainCurvePoints)
   const terrainArea = terrainLine
     ? `${terrainLine} L 900 440 L 0 440 Z`
     : `M 0 ${terrainBase} L 900 ${terrainBase} L 900 440 L 0 440 Z`
+  const contourLine = smoothPath(terrainCurvePoints.map((point) => ({ ...point, y: point.y + 13 })))
+  const backgroundLandmarks = backgroundCategories.map((category, index) => {
+    const ratio = Math.sqrt(category.spend / spendMax)
+    const personalScale = 0.9 + seedFor(index + 71) * 0.2
+    const type = landmarkType(category.category, biome, seedFor(index + 111))
+    const structureScale = type === 'cottage' ? 0.9 : type === 'building' ? 0.92 : 1
+    const height = (42 + ratio * 92) * personalScale * structureScale
+    const baseX = backgroundCategories.length === 1 ? 450 : 112 + index * (676 / (backgroundCategories.length - 1))
+    return {
+      category,
+      x: Math.max(70, Math.min(830, baseX + (seedFor(index + 91) - 0.5) * 38)),
+      baseY: terrainBase + 20,
+      width: (38 + ratio * 48) * personalScale * structureScale,
+      height,
+      type,
+      color: categoryColor(category.category, categories.indexOf(category), biome, profile.paletteOffset),
+      biome,
+      colors,
+    }
+  })
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.category ?? null)
   const [hoveredCategory, setHoveredCategory] = useState(null)
   const activeCategory = hoveredCategory ?? selectedCategory
@@ -410,14 +673,14 @@ function Tapestry({ rows, priceChanges, memberName }) {
           <p className="landscape-caption">{profile.caption}</p>
           <p className="landscape-hint">Hover, tap or focus a marker to explore its category.</p>
           <div className="landscape-key" aria-label="Landscape visual key">
-            <span><i className="key-ground" /> Essentials</span>
-            <span><i className="key-accent" /> Treats &amp; drinks</span>
-            <span><i className="key-wave" /> Price trend</span>
-            <span className="height-key">Higher ground = more essentials spend</span>
+            <span><i className="key-ground" /> Foreground categories</span>
+            <span><i className="key-landmark" /> Background landmarks</span>
+            <span><i className="key-wave" /> Price trend contour</span>
+            <span className="height-key">Smaller spends shape the ground; larger spends build the skyline.</span>
           </div>
           <div className="tapestry-legend" role="group" aria-label="Spending categories">
             {categories.map((category, index) => {
-              const color = categoryColor(category.category, index)
+              const color = categoryColor(category.category, index, biome, profile.paletteOffset)
               return (
                 <button
                   type="button"
@@ -439,156 +702,103 @@ function Tapestry({ rows, priceChanges, memberName }) {
           </div>
         </div>
         <div className="tapestry-art">
-          <svg viewBox="0 0 900 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <svg viewBox="0 0 900 440" preserveAspectRatio="none" aria-hidden="true">
           <defs>
             <linearGradient id="landscape-sky" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor={colors.sky} />
-              <stop offset=".38" stopColor={colors.mid} />
+              <stop offset=".24" stopColor={colors.mid} />
+              <stop offset=".48" stopColor={colors.far} />
               <stop offset=".7" stopColor={colors.horizon} />
-              <stop offset=".9" stopColor={colors.horizon} />
+              <stop offset=".86" stopColor={colors.near} />
+              <stop offset="1" stopColor={colors.ground} />
+            </linearGradient>
+            <linearGradient id="landscape-distant" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={colors.far} />
               <stop offset="1" stopColor={colors.near} />
             </linearGradient>
-            <linearGradient id="inflation-wave" x1="0" y1="0" x2="1" y2="0">
+            <linearGradient id="landscape-midground" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={colors.near} />
+              <stop offset="1" stopColor={colors.ground} />
+            </linearGradient>
+            <linearGradient id="landscape-structure" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor={colors.far} />
-              <stop offset=".58" stopColor={colors.horizon} />
-              <stop offset="1" stopColor={colors.near} />
+              <stop offset=".58" stopColor={colors.near} />
+              <stop offset="1" stopColor={colors.ground} />
+            </linearGradient>
+            <linearGradient id="landscape-house-roof" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor={colors.deep} />
+              <stop offset=".62" stopColor={colors.near} />
+              <stop offset="1" stopColor={colors.deep} />
+            </linearGradient>
+            <linearGradient id="landscape-water" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={colors.glow} />
+              <stop offset=".24" stopColor={colors.horizon} />
+              <stop offset=".63" stopColor={colors.mid} />
+              <stop offset="1" stopColor={colors.deep} />
+            </linearGradient>
+            <linearGradient id="landscape-foreground" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={colors.horizon} />
+              <stop offset=".28" stopColor={colors.ground} />
+              <stop offset="1" stopColor={colors.deep} />
             </linearGradient>
             <radialGradient id="sunset-sun" cx=".35" cy=".28" r=".8">
               <stop offset="0" stopColor="#fffbe0" />
               <stop offset=".7" stopColor={colors.sun} />
               <stop offset="1" stopColor={colors.horizon} />
             </radialGradient>
-            <clipPath id="landscape-ground">
-              <path d={terrainArea} />
-            </clipPath>
             <filter id="landscape-soft"><feGaussianBlur stdDeviation="18" /></filter>
           </defs>
           <rect width="900" height="440" fill="url(#landscape-sky)" />
-          <BiomeScenery profile={profile} movement={movement} />
-          <path d={terrainArea} fill={colors.ground} />
-          <path d={terrainLine || `M 0 ${terrainBase} L 900 ${terrainBase}`} fill="none" stroke={colors.horizon} strokeWidth="2" opacity=".86" />
-          <path d={profile.foregroundPath} fill={colors.deep} opacity=".9" />
-
-          {biome === 'forest' && (
-            <g clipPath="url(#landscape-ground)" opacity=".42">
-              {terrainPoints.map(({ category, x, y }, index) => (
-                <path key={category.category} d={`M ${x} ${y + 3} C ${x - 8} 342 ${x + 7} 390 ${x} 440`} fill="none" stroke={categoryColor(category.category, index)} strokeWidth={4 + category.spend / spendMax * 7} />
-              ))}
-            </g>
-          )}
-          {biome === 'city' && <path d="M 0 383 H 900 M 0 405 H 900 M 120 365 V 440 M 360 365 V 440 M 610 365 V 440" stroke="#f6c577" strokeWidth="3" strokeDasharray="12 16" opacity=".6" />}
-          {biome === 'night_market' && <path d="M 0 379 H 900 M 0 409 H 900" stroke="#ee7ab6" strokeWidth="3" strokeDasharray="18 10" opacity=".7" />}
-          {biome === 'tundra' && <path d="M 92 370 L 145 393 L 183 378 L 245 408 M 553 366 L 592 388 L 640 374 L 688 402" fill="none" stroke="#e4f0ed" strokeWidth="3" opacity=".8" />}
-          {biome === 'desert' && <path d="M 0 365 C 160 338 266 371 397 388 S 656 404 900 359 M 0 398 C 161 371 267 404 398 421 S 657 437 900 392" fill="none" stroke="#f2c477" strokeWidth="3" opacity=".7" />}
-          {biome === 'coast' && <path d="M 0 383 C 126 365 253 401 380 383 S 636 365 900 389 M 0 412 C 126 394 253 430 380 412 S 636 394 900 418" fill="none" stroke="#bce0d4" strokeWidth="3" opacity=".7" />}
-          {biome === 'wetlands' && [95, 250, 652, 823].map((x) => (
-            <g key={x} stroke="#8cae72" strokeWidth="3" strokeLinecap="round">
-              <path d={`M ${x} 405 V 357 M ${x + 9} 408 V 367 M ${x - 8} 407 V 375`} />
-              <ellipse cx={x + 25} cy="400" rx="14" ry="5" fill="#84a987" />
-            </g>
+          <BiomeScenery profile={profile} spendScale={spendScale} />
+          {backgroundLandmarks.map((landmark) => (
+            <LandscapeLandmark
+              key={landmark.category.category}
+              landmark={landmark}
+              selected={activeCategory === landmark.category.category}
+            />
           ))}
-          {biome === 'jungle' && <path d="M 0 369 C 56 333 89 381 137 350 S 221 376 263 350 M 635 362 C 687 331 716 383 766 352 S 851 381 900 346" fill="none" stroke="#81ab5e" strokeWidth="8" strokeLinecap="round" opacity=".75" />}
-          {biome === 'alpine' && <path d="M 433 343 C 447 371 426 394 442 440 M 450 346 C 462 374 444 399 459 440" fill="none" stroke="#d5eee5" strokeWidth="4" opacity=".86" />}
-          {biome === 'meadow' && [86, 190, 310, 579, 756, 845].map((x, index) => (
-            <g key={x} transform={`translate(${x} ${385 + index % 2 * 18})`}>
-              <path d="M 0 14 V -8" stroke="#cadb89" strokeWidth="2" />
-              <circle cy="-11" r="5" fill={index % 2 ? '#f5b5aa' : '#f2d879'} />
-            </g>
-          ))}
-
-          {(biome === 'city' || biome === 'night_market') ? (
-            <path d={`M 0 263 H 155 V ${251 - inflationWave} H 279 V 264 H 425 V ${250 - inflationWave} H 585 V 266 H 730 V ${252 - inflationWave} H 900`}
-              fill="none" stroke="url(#inflation-wave)" strokeWidth={3 + movement * 5} opacity=".75" />
-          ) : biome === 'tundra' ? (
-            <path d={`M 0 267 L 151 ${257 - inflationWave} L 253 ${269 + inflationWave} L 399 ${248 - inflationWave} L 566 ${266 + inflationWave} L 741 ${250 - inflationWave} L 900 263`}
-              fill="none" stroke="url(#inflation-wave)" strokeWidth={3 + movement * 5} opacity=".8" />
-          ) : biome === 'desert' ? (
-            <path d={`M 0 255 C 160 ${239 - inflationWave}, 270 ${269 + inflationWave}, 428 252 S 686 ${238 - inflationWave}, 900 259`}
-              fill="none" stroke="url(#inflation-wave)" strokeWidth={3 + movement * 5} opacity=".78" />
-          ) : (
-            <path d={`M 0 258 C 130 ${258 - inflationWave}, 224 ${265 + inflationWave}, 360 253 S 612 ${249 - inflationWave}, 740 261 S 838 ${271 + inflationWave}, 900 249`}
-              fill="none" stroke="url(#inflation-wave)" strokeWidth={3 + movement * 5} opacity=".75" />
+          <path d={terrainArea} fill="url(#landscape-foreground)" />
+          <path d={terrainLine || `M 0 ${terrainBase} L 900 ${terrainBase}`} fill="none" stroke={colors.horizon} strokeWidth="2" opacity=".9" />
+          {priceChanges.length > 0 && (
+            <>
+              <path d={contourLine} fill="none" stroke={colors.deep} strokeWidth={7 + movement * 2} strokeDasharray="2 7" strokeLinecap="round" opacity=".68" />
+              <path d={contourLine} fill="none" stroke={movement > 0.35 ? colors.sun : colors.glow} strokeWidth={3.5 + movement * 2.5} strokeDasharray="2 7" strokeLinecap="round" />
+            </>
           )}
-
-          {priceChanges.slice(0, 7).map((change, index) => {
-            const x = 94 + index * 112
-            const y = 238 + Math.sin(index * 1.7) * inflationWave * 0.45
-            return <circle key={change.product} cx={x} cy={y} r={3 + movement * 3} fill={movement > 0.35 ? '#dd8358' : '#6d9ea1'} opacity=".8" />
-          })}
-
-          {accents.map((category, index) => {
-            const x = accents.length === 1 ? 450 : 180 + index * (540 / (accents.length - 1))
-            const spendRatio = category.spend / spendMax
-            const isAlcohol = category.category === 'alcohol'
-            const y = isAlcohol ? terrainBase - 4 : accentBaseY - spendRatio * 48
-            const radius = 8 + spendRatio * 11
-            const color = categoryColor(category.category, index)
-            const starX = x + (index % 2 === 0 ? radius + 17 : -radius - 17)
-            const starY = y - radius - 7
-            return (
-              <g key={category.category}>
-                {isAlcohol ? (
-                  <g>
-                    <path d={`M ${x - 54} ${terrainBase - 2} C ${x - 33} ${terrainBase - 27} ${x - 18} ${terrainBase - 10} ${x} ${terrainBase - 23} S ${x + 30} ${terrainBase - 30} ${x + 52} ${terrainBase - 3}`} fill="none" stroke="#647c46" strokeWidth="4" />
-                    <path d={`M ${x - 36} ${terrainBase - 16} C ${x - 52} ${terrainBase - 35} ${x - 57} ${terrainBase - 19} ${x - 36} ${terrainBase - 16} M ${x + 36} ${terrainBase - 18} C ${x + 54} ${terrainBase - 36} ${x + 59} ${terrainBase - 18} ${x + 36} ${terrainBase - 18}`} fill="#9bb96b" />
-                    {[-1, 0, 1].map((grape) => (
-                      <circle key={grape} cx={x + 31 + grape * 7} cy={terrainBase - 14 + Math.abs(grape) * 7} r="5" fill="#70445f" stroke="#d7bb8e" strokeWidth="1" />
-                    ))}
-                  </g>
-                ) : (
-                  <>
-                    <path d={`M ${x} ${y + radius} Q ${x - 20} ${y + 61} ${x + (index % 2 ? 34 : -28)} ${y + 95}`} fill="none" stroke={color} strokeWidth="2" strokeDasharray="3 7" opacity=".7" />
-                    {['city', 'night_market'].includes(biome) ? (
-                      <g fill={color} opacity=".82">
-                        <rect x={x - 24} y={y - radius - 24} width="10" height="22" rx="2" />
-                        <rect x={x - 8} y={y - radius - 32} width="12" height="30" rx="2" />
-                        <rect x={x + 10} y={y - radius - 18} width="13" height="16" rx="2" />
-                      </g>
-                    ) : ['jungle', 'forest', 'meadow'].includes(biome) ? (
-                      <g fill={color} opacity=".82">
-                        <path d={`M ${x - 4} ${y + 2} C ${x - 33} ${y - 23} ${x - 31} ${y - 40} ${x - 7} ${y - 31} C ${x + 2} ${y - 28} ${x + 1} ${y - 13} ${x - 4} ${y + 2} Z`} />
-                        <path d={`M ${x + 3} ${y} C ${x + 30} ${y - 30} ${x + 37} ${y - 13} ${x + 21} ${y - 4} C ${x + 13} ${y + 1} ${x + 7} ${y + 1} ${x + 3} ${y} Z`} />
-                      </g>
-                    ) : ['tundra', 'alpine'].includes(biome) ? (
-                      <path d={`M ${x} ${y - 31} V ${y - 13} M ${x - 16} ${y - 22} H ${x + 16} M ${x - 11} ${y - 33} L ${x + 11} ${y - 11} M ${x + 11} ${y - 33} L ${x - 11} ${y - 11}`} stroke={color} strokeWidth="4" strokeLinecap="round" />
-                    ) : ['coast', 'wetlands'].includes(biome) ? (
-                      <g fill="none" stroke={color} strokeWidth="3" opacity=".86">
-                        <path d={`M ${x - 31} ${y - 12} Q ${x - 16} ${y - 22} ${x} ${y - 12} T ${x + 31} ${y - 12}`} />
-                        <path d={`M ${x - 22} ${y - 3} Q ${x - 11} ${y - 11} ${x} ${y - 3} T ${x + 22} ${y - 3}`} />
-                      </g>
-                    ) : (
-                      <g fill="none" stroke={color} strokeWidth="4" strokeLinecap="round">
-                        <path d={`M ${x} ${y - 31} V ${y - 7} M ${x} ${y - 22} C ${x - 15} ${y - 24} ${x - 16} ${y - 31} ${x - 16} ${y - 37} M ${x} ${y - 17} C ${x + 15} ${y - 18} ${x + 16} ${y - 25} ${x + 16} ${y - 31}`} />
-                      </g>
-                    )}
-                    <circle cx={x} cy={y} r={radius + 5} fill="#ffd58d" opacity=".3" />
-                    <circle cx={x} cy={y} r={radius} fill={color} stroke="#fff7e7" strokeWidth="3" />
-                    {biome === 'city' || biome === 'night_market' ? (
-                      <path d={`M ${starX} ${starY - 6} L ${starX + 2} ${starY - 2} L ${starX + 6} ${starY} L ${starX + 2} ${starY + 2} L ${starX} ${starY + 6} L ${starX - 2} ${starY + 2} L ${starX - 6} ${starY} L ${starX - 2} ${starY - 2} Z`} fill="#fff1b8" />
-                    ) : null}
-                  </>
-                )}
-              </g>
-            )
-          })}
+          {biome === 'city' && <path d="M 0 388 H 900 M 140 370 V 440 M 390 370 V 440 M 650 370 V 440" stroke="#f6c577" strokeWidth="3" strokeDasharray="9 12" opacity=".68" />}
+          {biome === 'night_market' && <path d="M 0 389 H 900 M 0 414 H 900" stroke="#ee7ab6" strokeWidth="3" strokeDasharray="12 9" opacity=".72" />}
+          {biome === 'tundra' && <path d="M 92 376 L 145 394 L 183 382 L 245 410 M 553 375 L 592 391 L 640 379 L 688 404" fill="none" stroke="#e4f0ed" strokeWidth="3" opacity=".65" />}
+          {biome === 'desert' && <path d="M 0 380 C 160 354 266 382 397 398 S 656 412 900 374 M 0 410 C 161 384 267 412 398 426 S 657 438 900 404" fill="none" stroke="#f2c477" strokeWidth="3" opacity=".55" />}
+          {['coast', 'wetlands'].includes(biome) && <path d="M 0 388 C 126 371 253 405 380 388 S 636 371 900 394 M 0 414 C 126 397 253 431 380 414 S 636 397 900 420" fill="none" stroke="#bce0d4" strokeWidth="3" opacity=".55" />}
+          {terrainPoints.map((point, index) => (
+            <ForegroundGrowth
+              key={point.category.category}
+              category={point.category.category}
+              point={point}
+              biome={biome}
+              color={categoryColor(point.category.category, categories.indexOf(point.category), biome, profile.paletteOffset)}
+              colors={colors}
+              height={11 + Math.sqrt(point.category.spend / spendMax) * 12 + seedFor(index + 131) * 3}
+            />
+          ))}
           </svg>
           <div className="landscape-hotspots" role="group" aria-label="Select a category marker on the spending landscape">
             {categories.map((category, index) => {
-              const isAccent = ACCENTS.has(category.category)
-              const isAlcohol = category.category === 'alcohol'
-              const accentIndex = accents.findIndex((item) => item.category === category.category)
+              const landmark = backgroundLandmarks.find((item) => item.category.category === category.category)
               const terrainPoint = terrainPoints.find((point) => point.category.category === category.category)
-              const accentX = accents.length === 1 ? 450 : 180 + accentIndex * (540 / (accents.length - 1))
-              const accentY = isAlcohol ? terrainBase - 4 : accentBaseY - (category.spend / spendMax) * 48
-              const left = (isAccent ? accentX : terrainPoint?.x ?? 450) / 900 * 100
-              const top = (isAccent ? accentY : terrainPoint?.y ?? terrainBase) / 440 * 100
-              const color = categoryColor(category.category, index)
+              const x = landmark?.x ?? terrainPoint?.x ?? 450
+              const y = landmark ? landmark.baseY - landmark.height / 2 : terrainPoint?.y ?? terrainBase
+              const color = categoryColor(category.category, index, biome, profile.paletteOffset)
+              const landmarkHitbox = landmark
+                ? { width: `${landmark.width / 900 * 100}%`, height: `${landmark.height / 440 * 100}%` }
+                : {}
               return (
                 <button
                   type="button"
                   key={category.category}
-                  className={`landscape-hotspot${activeCategory === category.category ? ' selected' : ''}${isAlcohol ? ' alcohol' : isAccent ? ' accent' : ' essential'}`}
-                  style={{ left: `${left}%`, top: `${top}%`, '--category-color': color }}
+                  className={`landscape-hotspot ${landmark ? 'landmark' : 'foreground'}${activeCategory === category.category ? ' selected' : ''}`}
+                  style={{ left: `${x / 900 * 100}%`, top: `${y / 440 * 100}%`, '--category-color': color, ...landmarkHitbox }}
+                  data-biome={biome}
                   aria-label={`${categoryLabel(category.category)}, £${category.spend.toFixed(2)} spent`}
                   aria-pressed={selectedCategory === category.category}
                   onMouseEnter={() => setHoveredCategory(category.category)}
@@ -597,9 +807,7 @@ function Tapestry({ rows, priceChanges, memberName }) {
                   onBlur={() => setHoveredCategory(null)}
                   onClick={() => setSelectedCategory((current) => current === category.category ? null : category.category)}
                 >
-                  {isAlcohol
-                    ? <span className="hotspot-marker alcohol-marker" aria-hidden="true" />
-                    : <span className="hotspot-marker" aria-hidden="true">{index + 1}</span>}
+                  {!landmark && <span className="hotspot-marker" aria-hidden="true" />}
                   <span className="hotspot-label">{categoryLabel(category.category)}</span>
                 </button>
               )
@@ -611,7 +819,7 @@ function Tapestry({ rows, priceChanges, memberName }) {
       {activeRow && (
         <section className="category-detail" aria-live="polite">
           <div className="category-summary">
-            <span className="category-detail-swatch" style={{ '--category-color': categoryColor(activeRow.category, categories.indexOf(activeRow)), backgroundColor: categoryColor(activeRow.category, categories.indexOf(activeRow)) }} />
+            <span className="category-detail-swatch" style={{ '--category-color': categoryColor(activeRow.category, categories.indexOf(activeRow), biome, profile.paletteOffset), backgroundColor: categoryColor(activeRow.category, categories.indexOf(activeRow), biome, profile.paletteOffset) }} />
             <div>
               <p className="eyebrow">LANDSCAPE MARKER {categories.indexOf(activeRow) + 1}</p>
               <h3>{categoryLabel(activeRow.category)}</h3>
@@ -754,6 +962,7 @@ export default function Insights({ household }) {
                   rows={selectedMember.spend_by_category}
                   priceChanges={selectedMember.price_changes}
                   memberName={selectedMember.name}
+                  memberId={selectedMember.member_id}
                 />
                 <div className="insight-intro">
                   <div>

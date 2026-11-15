@@ -4,6 +4,9 @@ import Setup from './Setup.jsx'
 import Scan from './Scan.jsx'
 import Balances from './Balances.jsx'
 import Insights from './Insights.jsx'
+import Auth from './Auth.jsx'
+import Brand from './Brand.jsx'
+import InviteCode from './InviteCode.jsx'
 
 const TABS = ['Scan', 'Balances', 'Insights']
 
@@ -13,12 +16,65 @@ function loadSaved() {
 function save(id) {
   try { id ? localStorage.setItem('householdId', id) : localStorage.removeItem('householdId') } catch {}
 }
+function loadToken() {
+  try { return localStorage.getItem('receiptRemixToken') } catch { return null }
+}
+function saveToken(token) {
+  try { token ? localStorage.setItem('receiptRemixToken', token) : localStorage.removeItem('receiptRemixToken') } catch {}
+}
 
 export default function App() {
+  const [token, setToken] = useState(loadToken)
+  const [account, setAccount] = useState(null)
+  const [households, setHouseholds] = useState([])
+  const [authLoading, setAuthLoading] = useState(() => Boolean(loadToken()))
   const [household, setHousehold] = useState(null)
   const [showSetup, setShowSetup] = useState(false)
   const [tab, setTab] = useState('Scan')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return undefined
+    let active = true
+    setAuthLoading(true)
+    const restoreSession = async () => {
+      try {
+        const profile = await api.me()
+        if (!active) return
+        setAccount(profile)
+        setHouseholds(profile.households)
+        const savedId = loadSaved()
+        const selected = profile.households.find((item) => String(item.id) === savedId)
+          ?? (profile.households.length === 1 ? profile.households[0] : null)
+        if (selected) {
+          const current = await api.getHousehold(selected.id)
+          if (!active) return
+          setHousehold(current)
+          save(current.id)
+          setShowSetup(false)
+        } else {
+          setHousehold(null)
+          save(null)
+          setShowSetup(true)
+        }
+        setError('')
+      } catch (requestError) {
+        if (!active) return
+        saveToken(null)
+        api.setToken(null)
+        save(null)
+        setToken(null)
+        setAccount(null)
+        setHouseholds([])
+        setHousehold(null)
+        setError(requestError.message)
+      } finally {
+        if (active) setAuthLoading(false)
+      }
+    }
+    restoreSession()
+    return () => { active = false }
+  }, [token])
 
   const load = async (id) => {
     try {
@@ -33,18 +89,49 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    const id = loadSaved()
-    if (id) load(id)
-  }, [])
+  const activateHousehold = async (nextHousehold) => {
+    setHousehold(nextHousehold)
+    save(nextHousehold.id)
+    setShowSetup(false)
+    setError('')
+    try {
+      const profile = await api.me()
+      setAccount(profile)
+      setHouseholds(profile.households)
+    } catch (requestError) {
+      setError(requestError.message)
+    }
+  }
 
+  const signOut = async () => {
+    let signOutError = ''
+    try {
+      await api.logout()
+    } catch (requestError) {
+      signOutError = requestError.message
+    }
+    saveToken(null)
+    api.setToken(null)
+    save(null)
+    setToken(null)
+    setAccount(null)
+    setHouseholds([])
+    setHousehold(null)
+    setShowSetup(false)
+    setError(signOutError)
+  }
+
+  if (!token) return <Auth onAuthenticated={(value) => { api.setToken(value); saveToken(value); setToken(value); setError('') }} initialError={error} />
+  if (authLoading || !account) return <p className="muted card">Loading your account…</p>
   if (!household || showSetup) {
     return (
       <Setup
         currentHousehold={household}
+        households={households}
         onCancel={() => setShowSetup(false)}
-        onReady={(h) => { setHousehold(h); save(h.id); setShowSetup(false); setError('') }}
-        onLoad={load}
+        onReady={activateHousehold}
+        onSelectHousehold={load}
+        onLogout={signOut}
         error={error}
       />
     )
@@ -53,10 +140,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setTab('Scan') }}>
-          <span className="brand-mark" aria-hidden="true">r.</span>
-          <span>receipt<span className="brand-light">remix</span></span>
-        </a>
+        <Brand onClick={(event) => { event.preventDefault(); setTab('Scan') }} />
         <div className="household-chip">
           <span className="status-dot" />
           <span>{household.name}</span>
@@ -64,7 +148,9 @@ export default function App() {
           <span>{household.members.map((m) => m.name).join(' · ')}</span>
         </div>
         <button className="link switch-link" onClick={() => { setError(''); setShowSetup(true) }}>Switch household</button>
+        <button className="link sign-out-link" onClick={signOut}>Sign out</button>
       </header>
+      {household.invite_code && <InviteCode code={household.invite_code} />}
       <div className="page-heading">
         <div>
           <p className="eyebrow">YOUR HOUSEHOLD, IN FULL COLOUR</p>
