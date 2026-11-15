@@ -218,6 +218,7 @@ def balances(hid: int):
 
 @api.get("/households/{hid}/insights")
 def insights(hid: int):
+    """Return household totals and per-member shares from confirmed item splits."""
     with db.connect() as conn:
         base = "FROM line_items li JOIN receipts r ON r.id = li.receipt_id WHERE r.household_id = ?"
         by_category = db.rows(conn.execute(f"SELECT li.category, ROUND(SUM(li.price), 2) AS spend {base} GROUP BY li.category ORDER BY spend DESC", (hid,)))
@@ -227,7 +228,80 @@ def insights(hid: int):
         history = db.rows(conn.execute(
             f"SELECT li.canonical_name, li.name, li.category, li.price, li.size_value, li.size_unit, li.unit_price, li.unit_basis, r.purchased_at {base} AND li.canonical_name != '' ORDER BY r.purchased_at",
             (hid,)))
-    return {"spend_by_category": by_category, "spend_by_week": by_week, "price_changes": price_changes(history)}
+        members = db.rows(conn.execute(
+            "SELECT id, name FROM members WHERE household_id = ? ORDER BY id",
+            (hid,),
+        ))
+        by_member_category = db.rows(conn.execute(
+            """SELECT a.member_id, li.category,
+                      ROUND(SUM(li.price * 1.0 / shares.share_count), 2) AS spend
+               FROM assignments a
+               JOIN line_items li ON li.id = a.line_item_id
+               JOIN receipts r ON r.id = li.receipt_id
+               JOIN (
+                   SELECT line_item_id, COUNT(*) AS share_count
+                   FROM assignments GROUP BY line_item_id
+               ) shares ON shares.line_item_id = li.id
+               WHERE r.household_id = ? AND r.status = 'confirmed'
+               GROUP BY a.member_id, li.category
+               ORDER BY a.member_id, spend DESC""",
+            (hid,),
+        ))
+        by_member_week = db.rows(conn.execute(
+            """SELECT a.member_id,
+                      strftime('%Y-W%W', r.purchased_at) AS week,
+                      ROUND(SUM(li.price * 1.0 / shares.share_count), 2) AS spend
+               FROM assignments a
+               JOIN line_items li ON li.id = a.line_item_id
+               JOIN receipts r ON r.id = li.receipt_id
+               JOIN (
+                   SELECT line_item_id, COUNT(*) AS share_count
+                   FROM assignments GROUP BY line_item_id
+               ) shares ON shares.line_item_id = li.id
+               WHERE r.household_id = ? AND r.status = 'confirmed'
+                 AND r.purchased_at IS NOT NULL
+               GROUP BY a.member_id, week
+               ORDER BY a.member_id, week""",
+            (hid,),
+        ))
+        member_history = db.rows(conn.execute(
+            """SELECT a.member_id, li.canonical_name, li.name, li.category, li.price,
+                      li.size_value, li.size_unit, li.unit_price, li.unit_basis, r.purchased_at
+               FROM assignments a
+               JOIN line_items li ON li.id = a.line_item_id
+               JOIN receipts r ON r.id = li.receipt_id
+               WHERE r.household_id = ? AND r.status = 'confirmed'
+                 AND li.canonical_name != ''
+               ORDER BY r.purchased_at""",
+            (hid,),
+        ))
+
+    categories_by_member = defaultdict(list)
+    for row in by_member_category:
+        categories_by_member[row["member_id"]].append({"category": row["category"], "spend": row["spend"]})
+    weeks_by_member = defaultdict(list)
+    for row in by_member_week:
+        weeks_by_member[row["member_id"]].append({"week": row["week"], "spend": row["spend"]})
+    history_by_member = defaultdict(list)
+    for row in member_history:
+        history_by_member[row["member_id"]].append(row)
+
+    housemates = [
+        {
+            "member_id": member["id"],
+            "name": member["name"],
+            "spend_by_category": categories_by_member[member["id"]],
+            "spend_by_week": weeks_by_member[member["id"]],
+            "price_changes": price_changes(history_by_member[member["id"]]),
+        }
+        for member in members
+    ]
+    return {
+        "spend_by_category": by_category,
+        "spend_by_week": by_week,
+        "price_changes": price_changes(history),
+        "housemates": housemates,
+    }
 
 
 def price_changes(history: list[dict]) -> list[dict]:
